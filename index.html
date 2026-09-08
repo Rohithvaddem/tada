@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tada Layout Digital View | Aspirealty</title>
+    <!-- CSS and Icon Libraries -->
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <!-- Loading Screen -->
+    <div id="loadingScreen" class="loading-screen">
+        <div class="loader-content">
+            <div class="loader-spinner"></div>
+            <div class="loader-logo">TADA LAYOUT DIGI</div>
+            <div class="loader-text">Loading layout...</div>
+        </div>
+    </div>
+
+    <div class="app-container">
+        <!-- Sidebar Navigation -->
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <div class="brand">
+                    <div class="brand-logo"><i class="fa-solid fa-map"></i></div>
+                    <div class="brand-name">TADA LAYOUT DIGI</div>
+                </div>
+                <button class="sidebar-close" id="sidebarCloseBtn"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            
+            <div class="sidebar-content">
+                <!-- Search Section -->
+                <div class="sidebar-section">
+                    <h3 class="section-title">Search Plot</h3>
+                    <div class="search-container">
+                        <div class="search-input-wrapper">
+                            <i class="fa-solid fa-magnifying-glass search-icon"></i>
+                            <input type="text" class="search-input" id="searchInput" placeholder="Enter Plot No. (e.g. 50)">
+                            <button class="search-clear-btn" id="searchClearBtn"><i class="fa-solid fa-circle-xmark"></i></button>
+                        </div>
+                        <div class="search-suggestions" id="searchSuggestions"></div>
+                    </div>
+                </div>
+                
+                <!-- Filter Section -->
+                <div class="sidebar-section">
+                    <div class="section-header">
+                        <h3 class="section-title">Filter by Facing</h3>
+                        <button class="filter-reset-btn" id="facingResetBtn">Clear</button>
+                    </div>
+                    <div class="filter-grid" id="facingFilterGrid">
+                        <button class="filter-pill" data-facing="East">East</button>
+                        <button class="filter-pill" data-facing="West">West</button>
+                        <button class="filter-pill" data-facing="North">North</button>
+                        <button class="filter-pill" data-facing="South">South</button>
+                        <button class="filter-pill" data-facing="North-East">North-East</button>
+                        <button class="filter-pill" data-facing="North-West">North-West</button>
+                        <button class="filter-pill" data-facing="South-East">South-East</button>
+                        <button class="filter-pill" data-facing="South-West">South-West</button>
+                        <button class="filter-pill" data-facing="East (Commercial)">East (Commercial)</button>
+                    </div>
+                </div>
+
+                <!-- Mapper Mode Section (Plot Button Aligner) -->
+                <div class="sidebar-section" id="mapperSection" style="border-top: 1px solid var(--border-color); display: block;">
+                    <div class="section-header">
+                        <h3 class="section-title" style="color: var(--accent); margin-bottom: 0;"><i class="fa-solid fa-map-pin"></i> Plot Button Aligner</h3>
+                        <button class="filter-reset-btn" id="toggleMapperBtn">Start</button>
+                    </div>
+                    <div id="mapperPanel" style="display: none; margin-top: 12px;">
+                        <p style="font-size: 11px; color: var(--text-secondary); margin-bottom: 10px; line-height: 1.4; text-align: left;">
+                            Select a plot below or click its dot on the map, then click on the map anywhere to align its button. The active plot will auto-advance.
+                        </p>
+                        <div style="display: flex; gap: 8px; align-items: center; margin-bottom: 12px;">
+                            <span style="font-size: 12px; font-weight: 600; color: var(--text-primary);">Active: Plot #</span>
+                            <input type="number" id="mapperActivePlot" style="width: 70px; background: var(--bg-tertiary); border: 1px solid var(--border-color); color: #fff; padding: 4px 8px; border-radius: 6px;" value="1" min="1" max="131">
+                        </div>
+                        <div style="max-height: 150px; overflow-y: auto; display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px; padding: 6px; background: rgba(0,0,0,0.2); border-radius: 8px; margin-bottom: 12px;" id="mapperPlotList">
+                            <!-- 1 to 131 plot buttons -->
+                        </div>
+                        <button id="mapperExportBtn" class="admin-login-btn" style="background-color: var(--accent); color: #fff; border: none; font-weight: 700; width: 100%;">
+                            <i class="fa-solid fa-download"></i> Export Coords Config
+                        </button>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="sidebar-footer" id="sidebarFooter">
+                <button class="admin-login-btn" id="staffLoginBtn" style="border: none; cursor: pointer; width: 100%; display: flex; align-items: center; justify-content: center; gap: 8px;">
+                    <i class="fa-solid fa-lock"></i> Staff Login
+                </button>
+            </div>
+        </aside>
+
+        <!-- Main Content Area -->
+        <main class="main-content">
+            <!-- Top Dashboard Header -->
+            <header class="dashboard-header">
+                <button class="sidebar-toggle" id="sidebarToggleBtn"><i class="fa-solid fa-bars"></i></button>
+                <div class="header-project-info">
+                    <h2 class="project-name">Tada Layout Digital View</h2>
+                    <span class="badge approved-badge">
+                        <i class="fa-solid fa-square-check"></i> Approved Layout
+                    </span>
+                </div>
+                <div class="header-stats">
+                    <div class="stat-header-item">
+                        <div class="stat-header-label">Total Plots</div>
+                        <div class="stat-header-val" id="statTotalPlots">131</div>
+                    </div>
+                    <div class="stat-header-item" style="border-left: 1px solid var(--border-color); padding-left: 14px;">
+                        <div class="stat-header-label" style="color: #10b981;">Available</div>
+                        <div class="stat-header-val" id="statAvailablePlots">0</div>
+                    </div>
+                    <div class="stat-header-item" style="border-left: 1px solid var(--border-color); padding-left: 14px;">
+                        <div class="stat-header-label" style="color: #f97316;">Prem Kumar</div>
+                        <div class="stat-header-val" id="statPremKumarPlots">0</div>
+                    </div>
+                    <div class="stat-header-item" style="border-left: 1px solid var(--border-color); padding-left: 14px;">
+                        <div class="stat-header-label" style="color: #facc15;">Suresh</div>
+                        <div class="stat-header-val" id="statSureshPlots">0</div>
+                    </div>
+                    <div class="stat-header-item" style="border-left: 1px solid var(--border-color); padding-left: 14px;">
+                        <div class="stat-header-label" style="color: #3b82f6;">Soumith</div>
+                        <div class="stat-header-val" id="statSoumithPlots">0</div>
+                    </div>
+                </div>
+            </header>
+
+            <!-- Map Viewport Container -->
+            <div class="map-viewport" id="mapViewport">
+                <!-- Floating Legend Card -->
+                <div class="floating-legend-card" id="floatingLegendCard">
+                    <div class="floating-legend-header" id="floatingLegendHeader" title="Click to collapse/expand legend">
+                        <div class="floating-legend-title">
+                            <i class="fa-solid fa-palette" style="color: #60a5fa;"></i> <span>Plot Status Legend</span>
+                        </div>
+                        <button class="floating-legend-toggle" id="floatingLegendToggle">
+                            <i class="fa-solid fa-chevron-up"></i>
+                        </button>
+                    </div>
+                    <div class="floating-legend-body" id="floatingLegendBody">
+                        <!-- Populated dynamically by app.js -->
+                    </div>
+                </div>
+
+                <!-- Pan & Zoom Tip -->
+                <div class="map-tip" id="mapTip">
+                    <i class="fa-solid fa-hand-pointer"></i> Drag to Pan &bull; Scroll or Pinch to Zoom
+                </div>
+
+                <!-- Map Controls -->
+                <div class="map-controls">
+                    <button class="map-control-btn" id="zoomInBtn" title="Zoom In"><i class="fa-solid fa-plus"></i></button>
+                    <button class="map-control-btn" id="zoomOutBtn" title="Zoom Out"><i class="fa-solid fa-minus"></i></button>
+                    <button class="map-control-btn" id="recenterBtn" title="Recenter Map"><i class="fa-solid fa-arrows-to-dot"></i></button>
+                </div>
+
+                <!-- Drag/Zoom Container -->
+                <div class="map-container" id="mapContainer">
+                    <img src="map_layout.png" alt="Tada Layout" class="map-image" id="mapImage">
+                    <div class="plots-overlay" id="plotsOverlay"></div>
+                </div>
+
+                <!-- Modal Backdrop -->
+                <div class="modal-backdrop" id="modalBackdrop">
+                    <div class="custom-modal" id="plotModal">
+                        <div class="modal-header">
+                            <h3 class="modal-title">Plot Details</h3>
+                            <button class="modal-close" id="modalCloseBtn"><i class="fa-solid fa-xmark"></i></button>
+                        </div>
+                        <div class="modal-body" id="modalBody">
+                            <!-- Populated dynamically by app.js -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Staff Login Modal -->
+    <div class="modal-backdrop" id="loginModalBackdrop">
+        <div class="custom-modal login-modal" id="loginModal" style="max-width: 400px;">
+            <div class="modal-header">
+                <h3 class="modal-title" id="loginModalTitle"><i class="fa-solid fa-lock"></i> Staff Login</h3>
+                <button class="modal-close" id="loginModalCloseBtn"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="modal-body" style="padding: 20px 24px;">
+                <div class="login-role-tabs" style="display: flex; gap: 6px; background: rgba(0,0,0,0.3); padding: 4px; border-radius: 10px; margin-bottom: 16px;">
+                    <button type="button" id="tabStaffLogin" class="role-tab-btn active" style="flex: 1; padding: 10px 8px; border-radius: 8px; border: none; font-weight: 800; font-size: 12px; cursor: pointer; background: var(--accent); color: #fff; display: flex; align-items: center; justify-content: center; gap: 6px; transition: all 0.2s;">
+                        <i class="fa-solid fa-user-shield"></i> Staff Login
+                    </button>
+                    <button type="button" id="tabDirectorLogin" class="role-tab-btn" style="flex: 1; padding: 10px 8px; border-radius: 8px; border: none; font-weight: 800; font-size: 12px; cursor: pointer; background: transparent; color: var(--text-secondary); display: flex; align-items: center; justify-content: center; gap: 6px; transition: all 0.2s;">
+                        <i class="fa-solid fa-crown" style="color: #facc15;"></i> Director Login
+                    </button>
+                </div>
+                <form id="loginForm" style="display: flex; flex-direction: column; gap: 16px;">
+                    <div style="display: flex; flex-direction: column; gap: 6px; text-align: left;">
+                        <label id="loginUsernameLabel" style="font-size: 12px; font-weight: 600; color: var(--text-secondary);">Username / Login ID</label>
+                        <input type="text" id="loginUsername" required style="background: var(--bg-tertiary); border: 1px solid var(--border-color); color: #fff; padding: 10px 12px; border-radius: 8px; font-size: 14px; outline: none;" placeholder="Enter staff username">
+                    </div>
+                    <div style="display: flex; flex-direction: column; gap: 6px; text-align: left;">
+                        <label style="font-size: 12px; font-weight: 600; color: var(--text-secondary);">Password</label>
+                        <div style="position: relative; width: 100%;">
+                            <input type="password" id="loginPassword" required style="width: 100%; background: var(--bg-tertiary); border: 1px solid var(--border-color); color: #fff; padding: 10px 38px 10px 12px; border-radius: 8px; font-size: 14px; outline: none;" placeholder="Enter password">
+                            <button type="button" id="togglePasswordBtn" title="Toggle Password Visibility" style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: none; border: none; color: var(--text-secondary); cursor: pointer; font-size: 14px; padding: 4px;">
+                                <i class="fa-solid fa-eye" id="togglePasswordIcon"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div id="loginError" style="color: var(--status-mortgage); font-size: 12px; text-align: left; display: none; font-weight: 600;">
+                        <i class="fa-solid fa-circle-exclamation"></i> Invalid credentials! Please verify username and password.
+                    </div>
+                    <button type="submit" id="loginSubmitBtn" class="admin-login-btn" style="background-color: var(--accent); color: #fff; border: none; font-weight: 700; padding: 12px; font-size: 14px; margin-top: 8px; cursor: pointer; border-radius: 8px;">
+                        Login as Staff
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="plot_coords.js"></script>
+    <script src="data.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>
