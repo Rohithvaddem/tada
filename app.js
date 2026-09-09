@@ -184,13 +184,14 @@ function renderPlotDots() {
         dot.id = `plot-dot-${plotNo}`;
         dot.dataset.plotNo = plotNo;
         
-        const isAvailablePlotDot = String(status || '').toUpperCase().trim() === 'AVAILABLE';
-        dot.dataset.facing = isAvailablePlotDot ? 'N/A' : (detail && detail.facing ? detail.facing : 'Unknown');
+        const facingValue = (detail && detail.facing && detail.facing.trim() !== '') ? detail.facing.trim() : 'N/A';
+        dot.dataset.facing = facingValue;
         dot.dataset.status = status;
         
         dot.style.setProperty('--plot-color', getStatusColor(status, plotNo));
+        const isAvailablePlotDot = String(status || '').toUpperCase().trim() === 'AVAILABLE';
         const displaySizeTooltip = (isAvailablePlotDot || !detail || !detail.plot_size || detail.plot_size === 'N/A') ? 'N/A' : (detail.plot_size + ' Sq.Yds');
-        dot.title = `Plot #${plotNo} | Status: ${status} | Size: ${displaySizeTooltip} | Facing: ${isAvailablePlotDot ? 'N/A' : (detail && detail.facing ? detail.facing : 'N/A')}`;
+        dot.title = `Plot #${plotNo} | Status: ${status} | Size: ${displaySizeTooltip} | Facing: ${facingValue}`;
         
         // Mapped coordinates centered for 20px dot size
         dot.style.left = `${coords.left - 10}px`;
@@ -509,9 +510,32 @@ function applyFilters() {
         
         let show = true;
         
-        // Apply Facing constraint
-        if (activeFacingFilters.size > 0 && !activeFacingFilters.has(facing)) {
-            show = false;
+        // Apply Facing constraint with intelligent normalization (handling spaces, dashes, and commercial variations)
+        if (activeFacingFilters.size > 0) {
+            let matchFacing = false;
+            activeFacingFilters.forEach(filter => {
+                const normFilter = String(filter || '').toLowerCase().replace(/\s*-\s*/g, '-').trim();
+                const normFacing = String(facing || '').toLowerCase().replace(/\s*-\s*/g, '-').trim();
+                
+                if (normFacing === 'n/a' || normFacing === '' || normFacing === 'unknown') {
+                    return;
+                }
+                
+                if (normFacing === normFilter) {
+                    matchFacing = true;
+                } else if (normFilter === 'east' && normFacing.startsWith('east')) {
+                    matchFacing = true;
+                } else if (normFilter === 'west' && normFacing.startsWith('west')) {
+                    matchFacing = true;
+                } else if (normFilter === 'north' && normFacing.startsWith('north')) {
+                    matchFacing = true;
+                } else if (normFilter === 'south' && normFacing.startsWith('south')) {
+                    matchFacing = true;
+                }
+            });
+            if (!matchFacing) {
+                show = false;
+            }
         }
         
         // Apply Status constraint
@@ -575,7 +599,7 @@ function openPlotModal(plotNo) {
             </div>
             <div class="detail-row">
                 <span class="detail-label">Facing Direction</span>
-                <span class="detail-val">${String(item.plot_status || '').toUpperCase().trim() === 'AVAILABLE' ? 'N/A' : (item.facing || 'N/A')}</span>
+                <span class="detail-val">${(item.facing && item.facing.trim() !== '') ? item.facing : 'N/A'}</span>
             </div>
             <div class="detail-row">
                 <span class="detail-label">Customer Name</span>
