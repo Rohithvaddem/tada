@@ -470,25 +470,32 @@ function focusOnPlot(plotNo) {
 
 function setupFilters() {
     // 1. Facing Filters (Pills)
-    facingFilterGrid.querySelectorAll('.filter-pill').forEach(pill => {
-        pill.addEventListener('click', () => {
-            const facing = pill.dataset.facing;
-            if (activeFacingFilters.has(facing)) {
-                activeFacingFilters.delete(facing);
-                pill.classList.remove('active');
-            } else {
-                activeFacingFilters.add(facing);
-                pill.classList.add('active');
+    if (facingFilterGrid) {
+        facingFilterGrid.querySelectorAll('.filter-pill').forEach(pill => {
+            pill.addEventListener('click', () => {
+                const facing = pill.dataset.facing;
+                if (activeFacingFilters.has(facing)) {
+                    activeFacingFilters.delete(facing);
+                    pill.classList.remove('active');
+                } else {
+                    activeFacingFilters.add(facing);
+                    pill.classList.add('active');
+                }
+                applyFilters();
+            });
+        });
+    }
+
+    const resetBtn = document.getElementById('facingResetBtn');
+    if (resetBtn) {
+        resetBtn.addEventListener('click', () => {
+            activeFacingFilters.clear();
+            if (facingFilterGrid) {
+                facingFilterGrid.querySelectorAll('.filter-pill').forEach(pill => pill.classList.remove('active'));
             }
             applyFilters();
         });
-    });
-
-    document.getElementById('facingResetBtn').addEventListener('click', () => {
-        activeFacingFilters.clear();
-        facingFilterGrid.querySelectorAll('.filter-pill').forEach(pill => pill.classList.remove('active'));
-        applyFilters();
-    });
+    }
 }
 
 function applyFilters() {
