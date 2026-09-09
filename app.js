@@ -572,10 +572,10 @@ function openPlotModal(plotNo) {
                 <span class="detail-label">Plot Area</span>
                 <span class="detail-val">${(String(item.plot_status || '').toUpperCase().trim() === 'AVAILABLE' || !item.plot_size || item.plot_size === 'N/A') ? 'N/A' : item.plot_size + ' Sq. Yards'}</span>
             </div>
-            ${String(item.plot_status || '').toUpperCase().trim() === 'AVAILABLE' ? '' : `<div class="detail-row">
+            <div class="detail-row">
                 <span class="detail-label">Facing Direction</span>
-                <span class="detail-val">${item.facing || 'N/A'}</span>
-            </div>`}
+                <span class="detail-val">${String(item.plot_status || '').toUpperCase().trim() === 'AVAILABLE' ? 'N/A' : (item.facing || 'N/A')}</span>
+            </div>
             <div class="detail-row">
                 <span class="detail-label">Customer Name</span>
                 <span class="detail-val">${item.customer_name ? (isAdminLoggedIn ? item.customer_name : maskName(item.customer_name)) : 'N/A'}</span>
