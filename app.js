@@ -184,12 +184,12 @@ function renderPlotDots() {
         dot.id = `plot-dot-${plotNo}`;
         dot.dataset.plotNo = plotNo;
         
-        const facingValue = (detail && detail.facing && detail.facing.trim() !== '') ? detail.facing.trim() : 'N/A';
+        const isAvailablePlotDot = String(status || '').toUpperCase().trim() === 'AVAILABLE';
+        const facingValue = isAvailablePlotDot ? 'N/A' : ((detail && detail.facing && detail.facing.trim() !== '') ? detail.facing.trim() : 'N/A');
         dot.dataset.facing = facingValue;
         dot.dataset.status = status;
         
         dot.style.setProperty('--plot-color', getStatusColor(status, plotNo));
-        const isAvailablePlotDot = String(status || '').toUpperCase().trim() === 'AVAILABLE';
         const displaySizeTooltip = (isAvailablePlotDot || !detail || !detail.plot_size || detail.plot_size === 'N/A') ? 'N/A' : (detail.plot_size + ' Sq.Yds');
         dot.title = `Plot #${plotNo} | Status: ${status} | Size: ${displaySizeTooltip} | Facing: ${facingValue}`;
         
@@ -510,12 +510,15 @@ function applyFilters() {
         
         let show = true;
         
-        // Apply Facing constraint with intelligent normalization (handling spaces, dashes, and commercial variations)
+        // Apply Facing constraint (AVAILABLE plots are always N/A so they do not highlight under direction filters)
         if (activeFacingFilters.size > 0) {
             let matchFacing = false;
+            const isAvailable = (rawStatus === 'AVAILABLE');
+            const effectiveFacing = isAvailable ? 'N/A' : facing;
+
             activeFacingFilters.forEach(filter => {
                 const normFilter = String(filter || '').toLowerCase().replace(/\s*-\s*/g, '-').trim();
-                const normFacing = String(facing || '').toLowerCase().replace(/\s*-\s*/g, '-').trim();
+                const normFacing = String(effectiveFacing || '').toLowerCase().replace(/\s*-\s*/g, '-').trim();
                 
                 if (normFacing === 'n/a' || normFacing === '' || normFacing === 'unknown') {
                     return;
@@ -599,7 +602,7 @@ function openPlotModal(plotNo) {
             </div>
             <div class="detail-row">
                 <span class="detail-label">Facing Direction</span>
-                <span class="detail-val">${(item.facing && item.facing.trim() !== '') ? item.facing : 'N/A'}</span>
+                <span class="detail-val">${String(item.plot_status || '').toUpperCase().trim() === 'AVAILABLE' ? 'N/A' : (item.facing && item.facing.trim() !== '' ? item.facing : 'N/A')}</span>
             </div>
             <div class="detail-row">
                 <span class="detail-label">Customer Name</span>
