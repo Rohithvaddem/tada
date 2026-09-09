@@ -183,13 +183,14 @@ function renderPlotDots() {
         dot.className = 'plot-dot';
         dot.id = `plot-dot-${plotNo}`;
         dot.dataset.plotNo = plotNo;
-        dot.dataset.facing = detail && detail.facing ? detail.facing : 'Unknown';
+        
+        const isAvailablePlotDot = String(status || '').toUpperCase().trim() === 'AVAILABLE';
+        dot.dataset.facing = isAvailablePlotDot ? 'N/A' : (detail && detail.facing ? detail.facing : 'Unknown');
         dot.dataset.status = status;
         
         dot.style.setProperty('--plot-color', getStatusColor(status, plotNo));
-        const isAvailablePlotDot = String(status || '').toUpperCase().trim() === 'AVAILABLE';
         const displaySizeTooltip = (isAvailablePlotDot || !detail || !detail.plot_size || detail.plot_size === 'N/A') ? 'N/A' : (detail.plot_size + ' Sq.Yds');
-        dot.title = `Plot #${plotNo} | Status: ${status} | Size: ${displaySizeTooltip} | Facing: ${detail && detail.facing ? detail.facing : 'N/A'}`;
+        dot.title = `Plot #${plotNo} | Status: ${status} | Size: ${displaySizeTooltip} | Facing: ${isAvailablePlotDot ? 'N/A' : (detail && detail.facing ? detail.facing : 'N/A')}`;
         
         // Mapped coordinates centered for 20px dot size
         dot.style.left = `${coords.left - 10}px`;
