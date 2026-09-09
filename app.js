@@ -510,34 +510,36 @@ function applyFilters() {
         
         let show = true;
         
-        // Apply Facing constraint (AVAILABLE plots are always N/A so they do not highlight under direction filters)
+        // Apply Facing constraint (If ANY facing filter is active, available plots should NOT appear)
         if (activeFacingFilters.size > 0) {
-            let matchFacing = false;
-            const isAvailable = (rawStatus === 'AVAILABLE');
-            const effectiveFacing = isAvailable ? 'N/A' : facing;
-
-            activeFacingFilters.forEach(filter => {
-                const normFilter = String(filter || '').toLowerCase().replace(/\s*-\s*/g, '-').trim();
-                const normFacing = String(effectiveFacing || '').toLowerCase().replace(/\s*-\s*/g, '-').trim();
-                
-                if (normFacing === 'n/a' || normFacing === '' || normFacing === 'unknown') {
-                    return;
-                }
-                
-                if (normFacing === normFilter) {
-                    matchFacing = true;
-                } else if (normFilter === 'east' && normFacing.startsWith('east')) {
-                    matchFacing = true;
-                } else if (normFilter === 'west' && normFacing.startsWith('west')) {
-                    matchFacing = true;
-                } else if (normFilter === 'north' && normFacing.startsWith('north')) {
-                    matchFacing = true;
-                } else if (normFilter === 'south' && normFacing.startsWith('south')) {
-                    matchFacing = true;
-                }
-            });
-            if (!matchFacing) {
+            const isAvailable = (normalizedStatus === 'AVAILABLE' || rawStatus === 'AVAILABLE');
+            if (isAvailable) {
                 show = false;
+            } else {
+                let matchFacing = false;
+                activeFacingFilters.forEach(filter => {
+                    const normFilter = String(filter || '').toLowerCase().replace(/\s*-\s*/g, '-').trim();
+                    const normFacing = String(facing || '').toLowerCase().replace(/\s*-\s*/g, '-').trim();
+                    
+                    if (normFacing === 'n/a' || normFacing === '' || normFacing === 'unknown') {
+                        return;
+                    }
+                    
+                    if (normFacing === normFilter) {
+                        matchFacing = true;
+                    } else if (normFilter === 'east' && normFacing.startsWith('east')) {
+                        matchFacing = true;
+                    } else if (normFilter === 'west' && normFacing.startsWith('west')) {
+                        matchFacing = true;
+                    } else if (normFilter === 'north' && normFacing.startsWith('north')) {
+                        matchFacing = true;
+                    } else if (normFilter === 'south' && normFacing.startsWith('south')) {
+                        matchFacing = true;
+                    }
+                });
+                if (!matchFacing) {
+                    show = false;
+                }
             }
         }
         
