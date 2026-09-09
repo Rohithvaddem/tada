@@ -187,7 +187,9 @@ function renderPlotDots() {
         dot.dataset.status = status;
         
         dot.style.setProperty('--plot-color', getStatusColor(status, plotNo));
-        dot.title = `Plot #${plotNo} | Status: ${status} | Size: ${detail && detail.plot_size ? detail.plot_size + ' Sq.Yds' : 'N/A'} | Facing: ${detail && detail.facing ? detail.facing : 'N/A'}`;
+        const isAvailablePlotDot = String(status || '').toUpperCase().trim() === 'AVAILABLE';
+        const displaySizeTooltip = (isAvailablePlotDot || !detail || !detail.plot_size || detail.plot_size === 'N/A') ? 'N/A' : (detail.plot_size + ' Sq.Yds');
+        dot.title = `Plot #${plotNo} | Status: ${status} | Size: ${displaySizeTooltip} | Facing: ${detail && detail.facing ? detail.facing : 'N/A'}`;
         
         // Mapped coordinates centered for 20px dot size
         dot.style.left = `${coords.left - 10}px`;
@@ -568,7 +570,7 @@ function openPlotModal(plotNo) {
             </div>
             <div class="detail-row">
                 <span class="detail-label">Plot Area</span>
-                <span class="detail-val">${item.plot_size ? item.plot_size + ' Sq. Yards' : 'N/A'}</span>
+                <span class="detail-val">${(String(item.plot_status || '').toUpperCase().trim() === 'AVAILABLE' || !item.plot_size || item.plot_size === 'N/A') ? 'N/A' : item.plot_size + ' Sq. Yards'}</span>
             </div>
             <div class="detail-row">
                 <span class="detail-label">Facing Direction</span>
