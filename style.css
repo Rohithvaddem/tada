@@ -682,39 +682,14 @@ body {
     display: none !important;
 }
 
-/* Pulsing Radar Wave on Available Plots */
+/* Disabled Pulsing Radar Wave on Available Plots */
 .plot-dot[data-status="AVAILABLE"] {
     position: absolute;
 }
 
 .plot-dot[data-status="AVAILABLE"]::before {
-    content: '';
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    width: 100%;
-    height: 100%;
-    border-radius: 50%;
-    background-color: var(--status-available);
-    transform: translate(-50%, -50%) scale(1);
-    opacity: 0.7;
-    animation: available-pulse-ring 2.4s cubic-bezier(0.215, 0.61, 0.355, 1) infinite;
-    pointer-events: none;
-    z-index: -1;
-}
-
-@keyframes available-pulse-ring {
-    0% {
-        transform: translate(-50%, -50%) scale(0.95);
-        opacity: 0.8;
-    }
-    50% {
-        opacity: 0.35;
-    }
-    100% {
-        transform: translate(-50%, -50%) scale(2.2);
-        opacity: 0;
-    }
+    display: none !important;
+    animation: none !important;
 }
 
 /* Pulsating Radar Wave & Glow for Mortgage Plots */
