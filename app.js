@@ -550,8 +550,10 @@ function applyFilters() {
         
         if (show) {
             dot.classList.remove('filtered-out');
+            dot.style.display = '';
         } else {
             dot.classList.add('filtered-out');
+            dot.style.display = 'none';
         }
     });
 }
