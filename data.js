@@ -1,7 +1,7 @@
 const plotDataRawTada = [
     {
         "plot_no": "1",
-        "plot_size": "400",
+        "plot_size": "1068",
         "facing": "East (Commercial)",
         "plot_status": "EVERYONES",
         "customer_name": "EVERYONES",
