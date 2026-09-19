@@ -81,7 +81,6 @@ if (document.readyState === 'loading') {
 
 function startTadaApp() {
     initApp();
-    initLeafletMap();
     setupMapControls();
     setupSearch();
     setupFilters();
@@ -174,139 +173,44 @@ function getStatusColor(status, plotNo, detail) {
     return '#10b981'; // Green default
 }
 
-let plotMarkersGroup = null;
-
 function renderPlotDots() {
     plotsOverlay.innerHTML = '';
     
-    if (!leafletMap || typeof L === 'undefined') return;
-
-    if (!plotMarkersGroup) {
-        plotMarkersGroup = L.layerGroup().addTo(leafletMap);
-    } else {
-        plotMarkersGroup.clearLayers();
-    }
-
-    const north = 13.60365257368192;
-    const south = 13.60046053102703;
-    const west = 80.00862079947686;
-    const east = 80.01232558108185;
-
-    const canvasW = 1000;
-    const canvasH = 500;
-
     Object.keys(plotCoordinates).forEach(plotNo => {
         const coords = plotCoordinates[plotNo];
         const detail = plotData.find(p => String(p.plot_no) === String(plotNo));
         const status = detail ? detail.plot_status : 'AVAILABLE';
         const color = getStatusColor(status, plotNo, detail);
-        const refName = detail && detail.reference_name ? detail.reference_name : '';
-        const sizeTooltip = detail && detail.plot_size ? detail.plot_size + ' Sq.Yds' : 'N/A';
-        const facingTooltip = detail && detail.facing ? detail.facing : 'N/A';
-
-        const normX = coords.left / canvasW;
-        const normY = coords.top / canvasH;
-
-        const lat = north - normY * (north - south);
-        const lng = west + normX * (east - west);
-
-        const html = `<button class="plot-dot" id="plot-dot-${plotNo}" data-plot-no="${plotNo}" data-facing="${facingTooltip}" data-status="${status}" style="--plot-color: ${color}; width: 22px; height: 22px; border-radius: 50%; border: 2px solid #fff; background: ${color}; color: #fff; font-size: 10px; font-weight: 800; cursor: pointer; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 6px rgba(0,0,0,0.4);">${plotNo}</button>`;
-
-        const plotIcon = L.divIcon({
-            className: 'custom-plot-marker',
-            html: html,
-            iconSize: [22, 22],
-            iconAnchor: [11, 11]
-        });
-
-        const marker = L.marker([lat, lng], { icon: plotIcon });
-        marker.title = `Plot #${plotNo} | Status: ${status} | Size: ${sizeTooltip} | Ref: ${refName || 'N/A'}`;
-
-        marker.on('click', (e) => {
-            if (e && e.originalEvent) e.originalEvent.stopPropagation();
+        
+        const dot = document.createElement('button');
+        dot.className = 'plot-dot';
+        dot.id = `plot-dot-${plotNo}`;
+        dot.dataset.plotNo = plotNo;
+        dot.dataset.facing = detail && detail.facing ? detail.facing : 'Unknown';
+        dot.dataset.status = status;
+        
+        dot.style.setProperty('--plot-color', color);
+        dot.style.left = `${coords.left - 10}px`;
+        dot.style.top = `${coords.top - 10}px`;
+        dot.textContent = plotNo;
+        
+        dot.addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (isMapperMode) {
+                activeMapperPlot = parseInt(plotNo) || plotNo;
+                if (mapperActivePlot) {
+                    mapperActivePlot.value = plotNo;
+                }
+                highlightActiveMapperButton();
+                return;
+            }
             openPlotModal(plotNo);
         });
-
-        plotMarkersGroup.addLayer(marker);
+        
+        plotsOverlay.appendChild(dot);
     });
 
     applyFilters();
-}
-
-let leafletMap = null;
-let kmzGroundOverlay = null;
-
-function initLeafletMap() {
-    const mapEl = document.getElementById('leafletMap');
-    if (!mapEl || typeof L === 'undefined') return;
-
-    const southWest = L.latLng(13.60046053102703, 80.00862079947686);
-    const northEast = L.latLng(13.60365257368192, 80.01232558108185);
-    const bounds = L.latLngBounds(southWest, northEast);
-    const center = bounds.getCenter();
-
-    leafletMap = L.map('leafletMap', {
-        center: center,
-        zoom: 17,
-        maxZoom: 21,
-        minZoom: 12,
-        zoomControl: false,
-        attributionControl: false
-    });
-
-    const googleSat = L.tileLayer('https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}', {
-        maxZoom: 21,
-        maxNativeZoom: 20
-    }).addTo(leafletMap);
-
-    const esriSat = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
-        maxZoom: 20,
-        maxNativeZoom: 18
-    });
-
-    const osmStreets = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{y}/{x}.png', {
-        maxZoom: 19
-    });
-
-    kmzGroundOverlay = L.imageOverlay('map_layout.png', bounds, {
-        opacity: 0.95,
-        interactive: false
-    }).addTo(leafletMap);
-
-    L.control.layers({
-        "<i class='fa-solid fa-satellite'></i> Google Satellite": googleSat,
-        "<i class='fa-solid fa-earth-americas'></i> Esri Imagery": esriSat,
-        "<i class='fa-solid fa-map-location-dot'></i> OpenStreetMap": osmStreets
-    }, {
-        "<i class='fa-solid fa-layer-group'></i> Tada KMZ Overlay": kmzGroundOverlay
-    }, { position: 'topright' }).addTo(leafletMap);
-
-    leafletMap.fitBounds(bounds, { padding: [40, 40] });
-
-    const zoomInBtn = document.getElementById('zoomInBtn');
-    const zoomOutBtn = document.getElementById('zoomOutBtn');
-    const recenterBtn = document.getElementById('recenterBtn');
-
-    if (zoomInBtn) {
-        zoomInBtn.onclick = (e) => {
-            if (e) e.stopPropagation();
-            leafletMap.zoomIn();
-        };
-    }
-    if (zoomOutBtn) {
-        zoomOutBtn.onclick = (e) => {
-            if (e) e.stopPropagation();
-            leafletMap.zoomOut();
-        };
-    }
-    if (recenterBtn) {
-        recenterBtn.onclick = (e) => {
-            if (e) e.stopPropagation();
-            leafletMap.fitBounds(bounds, { padding: [40, 40] });
-        };
-    }
-
-    renderPlotDots();
 }
 
 // ----------------------------------------------------
@@ -537,20 +441,22 @@ function focusOnPlot(plotNo) {
     const coords = plotCoordinates[plotNo];
     if (!coords) return;
     
-    if (leafletMap) {
-        const north = 13.60365257368192;
-        const south = 13.60046053102703;
-        const west = 80.00862079947686;
-        const east = 80.01232558108185;
-
-        const normX = coords.left / 1000;
-        const normY = coords.top / 500;
-
-        const lat = north - normY * (north - south);
-        const lng = west + normX * (east - west);
-
-        leafletMap.setView([lat, lng], 19, { animate: true });
-    }
+    document.querySelectorAll('.plot-dot.highlighted').forEach(dot => {
+        dot.classList.remove('highlighted');
+    });
+    
+    const dot = document.getElementById(`plot-dot-${plotNo}`);
+    if (dot) dot.classList.add('highlighted');
+    
+    // Center viewport focusing on targets
+    zoomScale = 1.0;
+    const vWidth = mapViewport.clientWidth;
+    const vHeight = mapViewport.clientHeight;
+    
+    panX = vWidth / 2 - coords.left * zoomScale;
+    panY = vHeight / 2 - coords.top * zoomScale;
+    
+    updateMapTransform();
 }
 
 // ----------------------------------------------------
