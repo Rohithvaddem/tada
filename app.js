@@ -175,48 +175,7 @@ function getStatusColor(status, plotNo, detail) {
 
 function renderPlotDots() {
     plotsOverlay.innerHTML = '';
-    
-    Object.keys(plotCoordinates).forEach(plotNo => {
-        const coords = plotCoordinates[plotNo];
-        const detail = plotData.find(p => String(p.plot_no) === String(plotNo));
-        const status = detail ? detail.plot_status : 'AVAILABLE';
-        
-        const dot = document.createElement('button');
-        dot.className = 'plot-dot';
-        dot.id = `plot-dot-${plotNo}`;
-        dot.dataset.plotNo = plotNo;
-        
-        const facingValue = (detail && detail.facing && detail.facing.trim() !== '') ? detail.facing.trim() : 'N/A';
-        dot.dataset.facing = facingValue;
-        dot.dataset.status = status;
-        
-        dot.style.setProperty('--plot-color', getStatusColor(status, plotNo, detail));
-        const displaySizeTooltip = (!detail || !detail.plot_size || detail.plot_size === 'N/A') ? 'N/A' : (detail.plot_size + ' Sq.Yds');
-        dot.title = `Plot #${plotNo} | Status: ${status} | Size: ${displaySizeTooltip} | Facing: ${facingValue}`;
-        
-        // Mapped coordinates centered for 20px dot size
-        dot.style.left = `${coords.left - 10}px`;
-        dot.style.top = `${coords.top - 10}px`;
-        
-        dot.textContent = plotNo;
-        
-        dot.addEventListener('click', (e) => {
-            e.stopPropagation();
-            if (isMapperMode) {
-                activeMapperPlot = parseInt(plotNo) || plotNo;
-                if (mapperActivePlot) {
-                    mapperActivePlot.value = plotNo;
-                }
-                highlightActiveMapperButton();
-                return;
-            }
-            openPlotModal(plotNo);
-        });
-        
-        plotsOverlay.appendChild(dot);
-    });
-
-    applyFilters();
+    if (mapImage) mapImage.style.display = 'none';
 }
 
 // ----------------------------------------------------
