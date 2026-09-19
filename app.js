@@ -192,8 +192,8 @@ function renderPlotDots() {
         dot.dataset.status = status;
         
         dot.style.setProperty('--plot-color', color);
-        dot.style.left = `${coords.left - 10}px`;
-        dot.style.top = `${coords.top - 10}px`;
+        dot.style.left = `${coords.left}px`;
+        dot.style.top = `${coords.top}px`;
         dot.textContent = plotNo;
         
         dot.addEventListener('click', (e) => {
@@ -360,6 +360,7 @@ function setupMapControls() {
 }
 
 function updateMapTransform() {
+    mapContainer.style.setProperty('--zoom-scale', zoomScale);
     mapContainer.style.transform = `translate(${panX}px, ${panY}px) scale(${zoomScale})`;
 }
 
@@ -1836,8 +1837,8 @@ function renderLeafletPlotMarkers() {
         const customIcon = L.divIcon({
             className: 'leaflet-plot-marker-container',
             html: `<button class="plot-dot" id="leaflet-plot-dot-${plotNo}" data-plot-no="${plotNo}" data-facing="${detail && detail.facing ? detail.facing : 'Unknown'}" data-status="${status}" style="--plot-color: ${color}; position: relative; left: 0; top: 0; transform: translate(-50%, -50%); cursor: pointer;">${plotNo}</button>`,
-            iconSize: [20, 20],
-            iconAnchor: [10, 10]
+            iconSize: [14, 14],
+            iconAnchor: [7, 7]
         });
 
         const marker = L.marker([lat, lng], { icon: customIcon });
