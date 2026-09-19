@@ -617,10 +617,6 @@ function openPlotModal(plotNo) {
                 <span class="detail-val">${(item.facing && item.facing.trim() !== '') ? item.facing : 'N/A'}</span>
             </div>
             <div class="detail-row">
-                <span class="detail-label">Customer Name</span>
-                <span class="detail-val">${item.customer_name ? (isAdminLoggedIn ? item.customer_name : maskName(item.customer_name)) : 'N/A'}</span>
-            </div>
-            <div class="detail-row">
                 <span class="detail-label">Reference / Share</span>
                 <span class="detail-val">${item.reference_name || 'N/A'}</span>
             </div>
