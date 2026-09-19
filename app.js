@@ -87,6 +87,7 @@ function startTadaApp() {
     setupMobileSidebar();
     setupMapper();
     setupAdmin();
+    setupMapViewToggle();
 }
 
 // Ensure map is fitted once all resources are loaded and on resize
@@ -1679,3 +1680,85 @@ function savePlotEdits(plotNo) {
     updateStatistics();
     openPlotModal(plotNo);
 }
+
+// GIS Satellite Map View State & Setup
+let leafletMapInstance = null;
+let currentViewMode = 'plan'; // 'plan' or 'gis'
+
+function setupMapViewToggle() {
+    const btn = document.getElementById('mapViewToggleBtn');
+    if (!btn) return;
+
+    btn.addEventListener('click', () => {
+        const mapContainer = document.getElementById('mapContainer');
+        const leafletMapDiv = document.getElementById('leafletMap');
+        const mapTip = document.getElementById('mapTip');
+
+        if (currentViewMode === 'plan') {
+            currentViewMode = 'gis';
+            btn.innerHTML = '<i class="fa-solid fa-map"></i> Switch to 2D Layout Plan';
+            btn.style.background = 'linear-gradient(135deg, #10b981, #059669)';
+
+            if (mapContainer) mapContainer.style.display = 'none';
+            if (mapTip) mapTip.style.display = 'none';
+            if (leafletMapDiv) leafletMapDiv.style.display = 'block';
+
+            if (!leafletMapInstance) {
+                initLeafletMap();
+            } else {
+                setTimeout(() => leafletMapInstance.invalidateSize(), 100);
+            }
+        } else {
+            currentViewMode = 'plan';
+            btn.innerHTML = '<i class="fa-solid fa-satellite"></i> Switch to GIS Satellite Map';
+            btn.style.background = 'linear-gradient(135deg, #0284c7, #0369a1)';
+
+            if (leafletMapDiv) leafletMapDiv.style.display = 'none';
+            if (mapContainer) mapContainer.style.display = 'block';
+            if (mapTip) mapTip.style.display = 'block';
+        }
+    });
+}
+
+function initLeafletMap() {
+    if (leafletMapInstance) return;
+
+    // KMZ doc.kml Lat/Lon Bounds
+    const bounds = [[13.60046053102703, 80.00862079947686], [13.60365257368192, 80.01232558108185]];
+    const center = [13.602056552354475, 80.010473190279365];
+
+    leafletMapInstance = L.map('leafletMap', {
+        center: center,
+        zoom: 18,
+        maxZoom: 21
+    });
+
+    const googleSat = L.tileLayer('https://{s}.google.com/vt/lyrs=s,h&x={x}&y={y}&z={z}', {
+        maxZoom: 21,
+        subdomains: ['mt0', 'mt1', 'mt2', 'mt3'],
+        attribution: '&copy; Google Maps'
+    }).addTo(leafletMapInstance);
+
+    const esriSat = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+        maxZoom: 21,
+        attribution: '&copy; Esri World Imagery'
+    });
+
+    // Add layout overlay from extracted KMZ GroundOverlay
+    const layoutOverlay = L.imageOverlay('map_layout.png', bounds, {
+        opacity: 0.85,
+        interactive: true
+    }).addTo(leafletMapInstance);
+
+    const baseLayers = {
+        "Google Satellite Hybrid": googleSat,
+        "Esri Satellite": esriSat
+    };
+
+    const overlays = {
+        "Layout KMZ Overlay": layoutOverlay
+    };
+
+    L.control.layers(baseLayers, overlays).addTo(leafletMapInstance);
+}
+
