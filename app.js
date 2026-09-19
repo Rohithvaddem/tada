@@ -459,9 +459,13 @@ function focusOnPlot(plotNo) {
         const north = 13.60365257368192;
         const west = 80.00862079947686;
         const east = 80.01232558108185;
-        const lat = north - (coords.top / 768) * (north - south);
-        const lng = west + (coords.left / 1024) * (east - west);
-        leafletMapInstance.setView([lat, lng], 20, { animate: true });
+        const zoomRef = 20;
+        const nwPoint = leafletMapInstance.project(L.latLng(north, west), zoomRef);
+        const sePoint = leafletMapInstance.project(L.latLng(south, east), zoomRef);
+        const plotPxX = nwPoint.x + (coords.left / 1024) * (sePoint.x - nwPoint.x);
+        const plotPxY = nwPoint.y + (coords.top / 768) * (sePoint.y - nwPoint.y);
+        const exactLatLng = leafletMapInstance.unproject(L.point(plotPxX, plotPxY), zoomRef);
+        leafletMapInstance.setView(exactLatLng, 20, { animate: true });
     } else {
         zoomScale = 1.0;
         const vWidth = mapViewport.clientWidth;
@@ -1698,6 +1702,7 @@ function savePlotEdits(plotNo) {
 // GIS Satellite Map View State & Setup
 let leafletMapInstance = null;
 let layoutOverlayInstance = null;
+let leafletMarkersLayer = null;
 let currentViewMode = 'gis'; // Default to Google Satellite Map
 
 function setupMapViewToggle() {
@@ -1711,9 +1716,6 @@ function setupMapViewToggle() {
 
         if (currentViewMode === 'plan') {
             currentViewMode = 'gis';
-            btn.innerHTML = '<i class="fa-solid fa-map"></i> Switch to 2D Layout Plan';
-            btn.style.background = 'linear-gradient(135deg, #10b981, #059669)';
-
             if (mapContainer) mapContainer.style.display = 'none';
             if (mapTip) mapTip.style.display = 'none';
             if (leafletMapDiv) leafletMapDiv.style.display = 'block';
@@ -1721,16 +1723,10 @@ function setupMapViewToggle() {
             if (!leafletMapInstance) {
                 initLeafletMap();
             } else {
-                setTimeout(() => {
-                    leafletMapInstance.invalidateSize();
-                    syncGisOverlay();
-                }, 100);
+                setTimeout(() => leafletMapInstance.invalidateSize(), 100);
             }
         } else {
             currentViewMode = 'plan';
-            btn.innerHTML = '<i class="fa-solid fa-satellite"></i> Switch to Google Satellite Map';
-            btn.style.background = 'linear-gradient(135deg, #0284c7, #0369a1)';
-
             if (leafletMapDiv) leafletMapDiv.style.display = 'none';
             if (mapContainer) mapContainer.style.display = 'block';
             if (mapTip) mapTip.style.display = 'block';
@@ -1738,62 +1734,17 @@ function setupMapViewToggle() {
     });
 }
 
-let isSyncScheduled = false;
-
-function syncGisOverlay() {
-    if (isSyncScheduled) return;
-    isSyncScheduled = true;
-
-    requestAnimationFrame(() => {
-        isSyncScheduled = false;
-        if (!layoutOverlayInstance || !leafletMapInstance) return;
-        const imgEl = layoutOverlayInstance.getElement();
-        let overlayDiv = document.getElementById('gisPlotsOverlay');
-        if (!imgEl) return;
-
-        if (!overlayDiv) {
-            overlayDiv = document.createElement('div');
-            overlayDiv.id = 'gisPlotsOverlay';
-            overlayDiv.className = 'gis-plots-overlay leaflet-zoom-animated';
-            overlayDiv.style.position = 'absolute';
-            overlayDiv.style.pointerEvents = 'none';
-            overlayDiv.style.zIndex = '450';
-            overlayDiv.style.willChange = 'transform, left, top, width, height';
-            if (imgEl.parentNode) {
-                imgEl.parentNode.appendChild(overlayDiv);
-            } else {
-                leafletMapInstance.getPanes().overlayPane.appendChild(overlayDiv);
-            }
-        }
-
-        overlayDiv.style.left = imgEl.style.left || '0px';
-        overlayDiv.style.top = imgEl.style.top || '0px';
-        overlayDiv.style.width = imgEl.style.width || (imgEl.style.maxWidth || '100%');
-        overlayDiv.style.height = imgEl.style.height || (imgEl.style.maxHeight || '100%');
-        overlayDiv.style.transform = imgEl.style.transform || '';
-        overlayDiv.style.transformOrigin = imgEl.style.transformOrigin || '0 0';
-    });
-}
-
 function initLeafletMap() {
     const leafletMapDiv = document.getElementById('leafletMap');
     const mapContainer = document.getElementById('mapContainer');
     const mapTip = document.getElementById('mapTip');
-    const btn = document.getElementById('mapViewToggleBtn');
 
     if (leafletMapDiv) leafletMapDiv.style.display = 'block';
     if (mapContainer) mapContainer.style.display = 'none';
     if (mapTip) mapTip.style.display = 'none';
-    if (btn) {
-        btn.innerHTML = '<i class="fa-solid fa-map"></i> Switch to 2D Layout Plan';
-        btn.style.background = 'linear-gradient(135deg, #10b981, #059669)';
-    }
 
     if (leafletMapInstance) {
-        setTimeout(() => {
-            leafletMapInstance.invalidateSize();
-            syncGisOverlay();
-        }, 100);
+        setTimeout(() => leafletMapInstance.invalidateSize(), 100);
         return;
     }
 
@@ -1813,8 +1764,7 @@ function initLeafletMap() {
         zoomAnimation: true,
         fadeAnimation: true,
         markerZoomAnimation: true,
-        wheelDebounceTime: 30,
-        wheelPxPerZoomLevel: 120
+        wheelDebounceTime: 40
     });
 
     const googleSat = L.tileLayer('https://{s}.google.com/vt/lyrs=y&x={x}&y={y}&z={z}', {
@@ -1840,7 +1790,7 @@ function initLeafletMap() {
         interactive: true
     }).addTo(leafletMapInstance);
 
-    leafletMapInstance.on('zoom move viewreset moveend zoomend resize', syncGisOverlay);
+    leafletMarkersLayer = L.layerGroup().addTo(leafletMapInstance);
 
     const baseLayers = {
         "Google Satellite Hybrid": googleSat,
@@ -1849,26 +1799,35 @@ function initLeafletMap() {
     };
 
     const overlays = {
-        "Tada Layout KMZ Overlay": layoutOverlayInstance
+        "Tada Layout KMZ Overlay": layoutOverlayInstance,
+        "Plot Dots Layer": leafletMarkersLayer
     };
 
     L.control.layers(baseLayers, overlays).addTo(leafletMapInstance);
 
-    setTimeout(() => {
-        renderLeafletPlotMarkers();
-    }, 100);
+    renderLeafletPlotMarkers();
 }
 
 function renderLeafletPlotMarkers() {
-    syncGisOverlay();
-    let overlayDiv = document.getElementById('gisPlotsOverlay');
-    if (!overlayDiv) {
-        syncGisOverlay();
-        overlayDiv = document.getElementById('gisPlotsOverlay');
+    if (!leafletMapInstance || typeof plotCoordinates === 'undefined') return;
+    if (!leafletMarkersLayer) {
+        leafletMarkersLayer = L.layerGroup().addTo(leafletMapInstance);
     }
-    if (!overlayDiv || typeof plotCoordinates === 'undefined') return;
+    leafletMarkersLayer.clearLayers();
 
-    overlayDiv.innerHTML = '';
+    const south = 13.60046053102703;
+    const north = 13.60365257368192;
+    const west = 80.00862079947686;
+    const east = 80.01232558108185;
+
+    // Projected Web Mercator pixel bounds at zoom level 20 for perfect non-linear projection
+    const zoomRef = 20;
+    const nwPoint = leafletMapInstance.project(L.latLng(north, west), zoomRef);
+    const sePoint = leafletMapInstance.project(L.latLng(south, east), zoomRef);
+
+    const overlayPixelWidth = sePoint.x - nwPoint.x;
+    const overlayPixelHeight = sePoint.y - nwPoint.y;
+
     const imgW = 1024;
     const imgH = 768;
 
@@ -1878,35 +1837,28 @@ function renderLeafletPlotMarkers() {
         const status = detail ? detail.plot_status : 'AVAILABLE';
         const color = getStatusColor(status, plotNo, detail);
 
-        const leftPct = (coords.left / imgW) * 100;
-        const topPct = (coords.top / imgH) * 100;
+        // Compute exact Mercator pixel position on overlay
+        const plotPxX = nwPoint.x + (coords.left / imgW) * overlayPixelWidth;
+        const plotPxY = nwPoint.y + (coords.top / imgH) * overlayPixelHeight;
 
-        const dot = document.createElement('button');
-        dot.className = 'plot-dot gis-plot-dot';
-        dot.id = `leaflet-plot-dot-${plotNo}`;
-        dot.dataset.plotNo = plotNo;
-        dot.dataset.facing = detail && detail.facing ? detail.facing : 'Unknown';
-        dot.dataset.status = status;
+        // Unproject to exact Web Mercator LatLng
+        const exactLatLng = leafletMapInstance.unproject(L.point(plotPxX, plotPxY), zoomRef);
 
-        dot.style.setProperty('--plot-color', color);
-        dot.style.position = 'absolute';
-        dot.style.left = `${leftPct}%`;
-        dot.style.top = `${topPct}%`;
-        dot.style.transform = 'translate(-50%, -50%)';
-        dot.style.pointerEvents = 'auto';
-        dot.style.cursor = 'pointer';
-        dot.textContent = plotNo;
+        const customIcon = L.divIcon({
+            className: 'leaflet-plot-marker-container',
+            html: `<button class="plot-dot leaflet-plot-dot-item" id="leaflet-plot-dot-${plotNo}" data-plot-no="${plotNo}" data-facing="${detail && detail.facing ? detail.facing : 'Unknown'}" data-status="${status}" style="--plot-color: ${color};">${plotNo}</button>`,
+            iconSize: [14, 14],
+            iconAnchor: [7, 7]
+        });
 
-        dot.addEventListener('click', (e) => {
-            e.stopPropagation();
+        const marker = L.marker(exactLatLng, { icon: customIcon });
+        marker.on('click', (e) => {
+            if (e.originalEvent) e.originalEvent.stopPropagation();
             openPlotModal(plotNo);
         });
 
-        overlayDiv.appendChild(dot);
+        leafletMarkersLayer.addLayer(marker);
     });
 
     applyFilters();
-}
-
-
 
