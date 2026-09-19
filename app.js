@@ -175,7 +175,7 @@ function getStatusColor(status, plotNo, detail) {
 
 function renderPlotDots() {
     plotsOverlay.innerHTML = '';
-    if (mapImage) mapImage.style.display = 'none';
+    if (mapImage) mapImage.style.display = 'block';
 }
 
 // ----------------------------------------------------
