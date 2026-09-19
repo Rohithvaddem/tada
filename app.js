@@ -157,7 +157,6 @@ function initApp() {
 // ----------------------------------------------------
 
 function getStatusColor(status, plotNo) {
-    if (String(plotNo) === '1') return '#8b5cf6'; // Violet for Plot 1 (EVERYONES)
     const s = String(status || '').toUpperCase().trim();
     if (s === 'EVERYONES' || s === "EVERYONE'S" || s === 'EVERYONE') return '#8b5cf6'; // Violet
     if (s === 'AVAILABLE') return '#10b981'; // Green
@@ -177,7 +176,7 @@ function renderPlotDots() {
     Object.keys(plotCoordinates).forEach(plotNo => {
         const coords = plotCoordinates[plotNo];
         const detail = plotData.find(p => String(p.plot_no) === String(plotNo));
-        const status = detail ? detail.plot_status : (String(plotNo) === '1' ? 'EVERYONES' : 'AVAILABLE');
+        const status = detail ? detail.plot_status : 'AVAILABLE';
         
         const dot = document.createElement('button');
         dot.className = 'plot-dot';
@@ -505,7 +504,7 @@ function applyFilters() {
         const rawStatus = String(dot.dataset.status || '').toUpperCase().trim();
         
         let normalizedStatus = 'AVAILABLE';
-        if (String(plotNo) === '1' || rawStatus === 'EVERYONES' || rawStatus === "EVERYONE'S" || rawStatus === 'EVERYONE') {
+        if (rawStatus === 'EVERYONES' || rawStatus === "EVERYONE'S" || rawStatus === 'EVERYONE') {
             normalizedStatus = 'EVERYONES';
         } else if (rawStatus === 'PREM KUMAR' || rawStatus === 'PREMKUMAR' || rawStatus === 'PREM' || rawStatus === 'MORTGAGE' || rawStatus === 'HOLD') {
             normalizedStatus = 'PREM KUMAR';
