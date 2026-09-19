@@ -81,6 +81,7 @@ if (document.readyState === 'loading') {
 
 function startTadaApp() {
     initApp();
+    initLeafletMap();
     setupMapControls();
     setupSearch();
     setupFilters();
@@ -175,7 +176,80 @@ function getStatusColor(status, plotNo, detail) {
 
 function renderPlotDots() {
     plotsOverlay.innerHTML = '';
-    if (mapImage) mapImage.style.display = 'block';
+}
+
+let leafletMap = null;
+let kmzGroundOverlay = null;
+
+function initLeafletMap() {
+    const mapEl = document.getElementById('leafletMap');
+    if (!mapEl || typeof L === 'undefined') return;
+
+    const southWest = L.latLng(13.60046053102703, 80.00862079947686);
+    const northEast = L.latLng(13.60365257368192, 80.01232558108185);
+    const bounds = L.latLngBounds(southWest, northEast);
+    const center = bounds.getCenter();
+
+    leafletMap = L.map('leafletMap', {
+        center: center,
+        zoom: 17,
+        maxZoom: 21,
+        minZoom: 12,
+        zoomControl: false,
+        attributionControl: false
+    });
+
+    const googleSat = L.tileLayer('https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}', {
+        maxZoom: 21,
+        maxNativeZoom: 20
+    }).addTo(leafletMap);
+
+    const esriSat = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+        maxZoom: 20,
+        maxNativeZoom: 18
+    });
+
+    const osmStreets = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{y}/{x}.png', {
+        maxZoom: 19
+    });
+
+    kmzGroundOverlay = L.imageOverlay('map_layout.png', bounds, {
+        opacity: 0.95,
+        interactive: false
+    }).addTo(leafletMap);
+
+    L.control.layers({
+        "<i class='fa-solid fa-satellite'></i> Google Satellite": googleSat,
+        "<i class='fa-solid fa-earth-americas'></i> Esri Imagery": esriSat,
+        "<i class='fa-solid fa-map-location-dot'></i> OpenStreetMap": osmStreets
+    }, {
+        "<i class='fa-solid fa-layer-group'></i> Tada KMZ Overlay": kmzGroundOverlay
+    }, { position: 'topright' }).addTo(leafletMap);
+
+    leafletMap.fitBounds(bounds, { padding: [40, 40] });
+
+    const zoomInBtn = document.getElementById('zoomInBtn');
+    const zoomOutBtn = document.getElementById('zoomOutBtn');
+    const recenterBtn = document.getElementById('recenterBtn');
+
+    if (zoomInBtn) {
+        zoomInBtn.onclick = (e) => {
+            if (e) e.stopPropagation();
+            leafletMap.zoomIn();
+        };
+    }
+    if (zoomOutBtn) {
+        zoomOutBtn.onclick = (e) => {
+            if (e) e.stopPropagation();
+            leafletMap.zoomOut();
+        };
+    }
+    if (recenterBtn) {
+        recenterBtn.onclick = (e) => {
+            if (e) e.stopPropagation();
+            leafletMap.fitBounds(bounds, { padding: [40, 40] });
+        };
+    }
 }
 
 // ----------------------------------------------------
