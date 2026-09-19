@@ -88,6 +88,7 @@ function startTadaApp() {
     setupMapper();
     setupAdmin();
     setupMapViewToggle();
+    initLeafletMap();
 }
 
 // Ensure map is fitted once all resources are loaded and on resize
@@ -211,6 +212,7 @@ function renderPlotDots() {
         plotsOverlay.appendChild(dot);
     });
 
+    renderLeafletPlotMarkers();
     applyFilters();
 }
 
@@ -448,16 +450,27 @@ function focusOnPlot(plotNo) {
     
     const dot = document.getElementById(`plot-dot-${plotNo}`);
     if (dot) dot.classList.add('highlighted');
+    const leafletDot = document.getElementById(`leaflet-plot-dot-${plotNo}`);
+    if (leafletDot) leafletDot.classList.add('highlighted');
     
-    // Center viewport focusing on targets
-    zoomScale = 1.0;
-    const vWidth = mapViewport.clientWidth;
-    const vHeight = mapViewport.clientHeight;
-    
-    panX = vWidth / 2 - coords.left * zoomScale;
-    panY = vHeight / 2 - coords.top * zoomScale;
-    
-    updateMapTransform();
+    if (currentViewMode === 'gis' && leafletMapInstance) {
+        const south = 13.60046053102703;
+        const north = 13.60365257368192;
+        const west = 80.00862079947686;
+        const east = 80.01232558108185;
+        const lat = north - (coords.top / 768) * (north - south);
+        const lng = west + (coords.left / 1024) * (east - west);
+        leafletMapInstance.setView([lat, lng], 20, { animate: true });
+    } else {
+        zoomScale = 1.0;
+        const vWidth = mapViewport.clientWidth;
+        const vHeight = mapViewport.clientHeight;
+        
+        panX = vWidth / 2 - coords.left * zoomScale;
+        panY = vHeight / 2 - coords.top * zoomScale;
+        
+        updateMapTransform();
+    }
 }
 
 // ----------------------------------------------------
@@ -1683,7 +1696,8 @@ function savePlotEdits(plotNo) {
 
 // GIS Satellite Map View State & Setup
 let leafletMapInstance = null;
-let currentViewMode = 'plan'; // 'plan' or 'gis'
+let leafletMarkersLayer = null;
+let currentViewMode = 'gis'; // Default to Google Satellite Map
 
 function setupMapViewToggle() {
     const btn = document.getElementById('mapViewToggleBtn');
@@ -1710,7 +1724,7 @@ function setupMapViewToggle() {
             }
         } else {
             currentViewMode = 'plan';
-            btn.innerHTML = '<i class="fa-solid fa-satellite"></i> Switch to GIS Satellite Map';
+            btn.innerHTML = '<i class="fa-solid fa-satellite"></i> Switch to Google Satellite Map';
             btn.style.background = 'linear-gradient(135deg, #0284c7, #0369a1)';
 
             if (leafletMapDiv) leafletMapDiv.style.display = 'none';
@@ -1721,11 +1735,32 @@ function setupMapViewToggle() {
 }
 
 function initLeafletMap() {
-    if (leafletMapInstance) return;
+    const leafletMapDiv = document.getElementById('leafletMap');
+    const mapContainer = document.getElementById('mapContainer');
+    const mapTip = document.getElementById('mapTip');
+    const btn = document.getElementById('mapViewToggleBtn');
+
+    if (leafletMapDiv) leafletMapDiv.style.display = 'block';
+    if (mapContainer) mapContainer.style.display = 'none';
+    if (mapTip) mapTip.style.display = 'none';
+    if (btn) {
+        btn.innerHTML = '<i class="fa-solid fa-map"></i> Switch to 2D Layout Plan';
+        btn.style.background = 'linear-gradient(135deg, #10b981, #059669)';
+    }
+
+    if (leafletMapInstance) {
+        setTimeout(() => leafletMapInstance.invalidateSize(), 100);
+        return;
+    }
 
     // KMZ doc.kml Lat/Lon Bounds
-    const bounds = [[13.60046053102703, 80.00862079947686], [13.60365257368192, 80.01232558108185]];
-    const center = [13.602056552354475, 80.010473190279365];
+    const south = 13.60046053102703;
+    const north = 13.60365257368192;
+    const west = 80.00862079947686;
+    const east = 80.01232558108185;
+
+    const bounds = [[south, west], [north, east]];
+    const center = [(south + north) / 2, (west + east) / 2];
 
     leafletMapInstance = L.map('leafletMap', {
         center: center,
@@ -1733,11 +1768,17 @@ function initLeafletMap() {
         maxZoom: 21
     });
 
-    const googleSat = L.tileLayer('https://{s}.google.com/vt/lyrs=s,h&x={x}&y={y}&z={z}', {
+    const googleSat = L.tileLayer('https://{s}.google.com/vt/lyrs=y&x={x}&y={y}&z={z}', {
         maxZoom: 21,
         subdomains: ['mt0', 'mt1', 'mt2', 'mt3'],
         attribution: '&copy; Google Maps'
     }).addTo(leafletMapInstance);
+
+    const googleRoadmap = L.tileLayer('https://{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}', {
+        maxZoom: 21,
+        subdomains: ['mt0', 'mt1', 'mt2', 'mt3'],
+        attribution: '&copy; Google Maps'
+    });
 
     const esriSat = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
         maxZoom: 21,
@@ -1750,15 +1791,65 @@ function initLeafletMap() {
         interactive: true
     }).addTo(leafletMapInstance);
 
+    // Plot Markers Layer on Leaflet
+    leafletMarkersLayer = L.layerGroup().addTo(leafletMapInstance);
+    renderLeafletPlotMarkers();
+
     const baseLayers = {
         "Google Satellite Hybrid": googleSat,
+        "Google Maps Standard": googleRoadmap,
         "Esri Satellite": esriSat
     };
 
     const overlays = {
-        "Layout KMZ Overlay": layoutOverlay
+        "Tada Layout KMZ Overlay": layoutOverlay,
+        "Plot Dots Layer": leafletMarkersLayer
     };
 
     L.control.layers(baseLayers, overlays).addTo(leafletMapInstance);
 }
+
+function renderLeafletPlotMarkers() {
+    if (!leafletMarkersLayer || typeof plotCoordinates === 'undefined') return;
+    leafletMarkersLayer.clearLayers();
+
+    const south = 13.60046053102703;
+    const north = 13.60365257368192;
+    const west = 80.00862079947686;
+    const east = 80.01232558108185;
+
+    const imgW = 1024;
+    const imgH = 768;
+
+    Object.keys(plotCoordinates).forEach(plotNo => {
+        const coords = plotCoordinates[plotNo];
+        const detail = plotData.find(p => String(p.plot_no) === String(plotNo));
+        const status = detail ? detail.plot_status : 'AVAILABLE';
+        const color = getStatusColor(status, plotNo, detail);
+
+        const relX = coords.left / imgW;
+        const relY = coords.top / imgH;
+
+        const lat = north - relY * (north - south);
+        const lng = west + relX * (east - west);
+
+        const customIcon = L.divIcon({
+            className: 'leaflet-plot-marker-container',
+            html: `<button class="plot-dot" id="leaflet-plot-dot-${plotNo}" data-plot-no="${plotNo}" data-facing="${detail && detail.facing ? detail.facing : 'Unknown'}" data-status="${status}" style="--plot-color: ${color}; position: relative; left: 0; top: 0; transform: translate(-50%, -50%); cursor: pointer;">${plotNo}</button>`,
+            iconSize: [20, 20],
+            iconAnchor: [10, 10]
+        });
+
+        const marker = L.marker([lat, lng], { icon: customIcon });
+        marker.on('click', (e) => {
+            if (e.originalEvent) e.originalEvent.stopPropagation();
+            openPlotModal(plotNo);
+        });
+
+        leafletMarkersLayer.addLayer(marker);
+    });
+
+    applyFilters();
+}
+
 
