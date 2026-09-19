@@ -174,8 +174,63 @@ function getStatusColor(status, plotNo, detail) {
     return '#10b981'; // Green default
 }
 
+let plotMarkersGroup = null;
+
 function renderPlotDots() {
     plotsOverlay.innerHTML = '';
+    
+    if (!leafletMap || typeof L === 'undefined') return;
+
+    if (!plotMarkersGroup) {
+        plotMarkersGroup = L.layerGroup().addTo(leafletMap);
+    } else {
+        plotMarkersGroup.clearLayers();
+    }
+
+    const north = 13.60365257368192;
+    const south = 13.60046053102703;
+    const west = 80.00862079947686;
+    const east = 80.01232558108185;
+
+    const canvasW = 1000;
+    const canvasH = 500;
+
+    Object.keys(plotCoordinates).forEach(plotNo => {
+        const coords = plotCoordinates[plotNo];
+        const detail = plotData.find(p => String(p.plot_no) === String(plotNo));
+        const status = detail ? detail.plot_status : 'AVAILABLE';
+        const color = getStatusColor(status, plotNo, detail);
+        const refName = detail && detail.reference_name ? detail.reference_name : '';
+        const sizeTooltip = detail && detail.plot_size ? detail.plot_size + ' Sq.Yds' : 'N/A';
+        const facingTooltip = detail && detail.facing ? detail.facing : 'N/A';
+
+        const normX = coords.left / canvasW;
+        const normY = coords.top / canvasH;
+
+        const lat = north - normY * (north - south);
+        const lng = west + normX * (east - west);
+
+        const html = `<button class="plot-dot" id="plot-dot-${plotNo}" data-plot-no="${plotNo}" data-facing="${facingTooltip}" data-status="${status}" style="--plot-color: ${color}; width: 22px; height: 22px; border-radius: 50%; border: 2px solid #fff; background: ${color}; color: #fff; font-size: 10px; font-weight: 800; cursor: pointer; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 6px rgba(0,0,0,0.4);">${plotNo}</button>`;
+
+        const plotIcon = L.divIcon({
+            className: 'custom-plot-marker',
+            html: html,
+            iconSize: [22, 22],
+            iconAnchor: [11, 11]
+        });
+
+        const marker = L.marker([lat, lng], { icon: plotIcon });
+        marker.title = `Plot #${plotNo} | Status: ${status} | Size: ${sizeTooltip} | Ref: ${refName || 'N/A'}`;
+
+        marker.on('click', (e) => {
+            if (e && e.originalEvent) e.originalEvent.stopPropagation();
+            openPlotModal(plotNo);
+        });
+
+        plotMarkersGroup.addLayer(marker);
+    });
+
+    applyFilters();
 }
 
 let leafletMap = null;
@@ -250,6 +305,8 @@ function initLeafletMap() {
             leafletMap.fitBounds(bounds, { padding: [40, 40] });
         };
     }
+
+    renderPlotDots();
 }
 
 // ----------------------------------------------------
@@ -480,22 +537,20 @@ function focusOnPlot(plotNo) {
     const coords = plotCoordinates[plotNo];
     if (!coords) return;
     
-    document.querySelectorAll('.plot-dot.highlighted').forEach(dot => {
-        dot.classList.remove('highlighted');
-    });
-    
-    const dot = document.getElementById(`plot-dot-${plotNo}`);
-    if (dot) dot.classList.add('highlighted');
-    
-    // Center viewport focusing on targets
-    zoomScale = 1.0;
-    const vWidth = mapViewport.clientWidth;
-    const vHeight = mapViewport.clientHeight;
-    
-    panX = vWidth / 2 - coords.left * zoomScale;
-    panY = vHeight / 2 - coords.top * zoomScale;
-    
-    updateMapTransform();
+    if (leafletMap) {
+        const north = 13.60365257368192;
+        const south = 13.60046053102703;
+        const west = 80.00862079947686;
+        const east = 80.01232558108185;
+
+        const normX = coords.left / 1000;
+        const normY = coords.top / 500;
+
+        const lat = north - normY * (north - south);
+        const lng = west + normX * (east - west);
+
+        leafletMap.setView([lat, lng], 19, { animate: true });
+    }
 }
 
 // ----------------------------------------------------
