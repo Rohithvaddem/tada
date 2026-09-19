@@ -159,7 +159,7 @@ function initApp() {
 function getStatusColor(status, plotNo) {
     const s = String(status || '').toUpperCase().trim();
     if (s === 'EVERYONES' || s === "EVERYONE'S" || s === 'EVERYONE') return '#8b5cf6'; // Violet
-    if (s === 'AVAILABLE') return '#10b981'; // Green
+    if (s === 'AVAILABLE') return '#3b82f6'; // Light Blue
     if (s === 'PREM KUMAR' || s === 'PREMKUMAR' || s === 'PREM') return '#f97316'; // Orange
     if (s === 'SURESH') return '#facc15'; // Yellow
     if (s === 'SOUMITH') return '#3b82f6'; // Blue
@@ -167,7 +167,7 @@ function getStatusColor(status, plotNo) {
     if (s === 'MORTGAGE' || s === 'HOLD') return '#f97316'; // Orange
     if (s === 'REGISTERED') return '#facc15'; // Yellow
     if (s === 'SOLD' || s === 'BOOKED' || s === 'CLUB HOUSE') return '#3b82f6'; // Blue
-    return '#10b981'; // Green default
+    return '#3b82f6'; // Light Blue default
 }
 
 function renderPlotDots() {
