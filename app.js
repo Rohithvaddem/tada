@@ -1738,32 +1738,41 @@ function setupMapViewToggle() {
     });
 }
 
+let isSyncScheduled = false;
+
 function syncGisOverlay() {
-    if (!layoutOverlayInstance || !leafletMapInstance) return;
-    const imgEl = layoutOverlayInstance.getElement();
-    let overlayDiv = document.getElementById('gisPlotsOverlay');
-    if (!imgEl) return;
+    if (isSyncScheduled) return;
+    isSyncScheduled = true;
 
-    if (!overlayDiv) {
-        overlayDiv = document.createElement('div');
-        overlayDiv.id = 'gisPlotsOverlay';
-        overlayDiv.className = 'gis-plots-overlay leaflet-zoom-animated';
-        overlayDiv.style.position = 'absolute';
-        overlayDiv.style.pointerEvents = 'none';
-        overlayDiv.style.zIndex = '450';
-        if (imgEl.parentNode) {
-            imgEl.parentNode.appendChild(overlayDiv);
-        } else {
-            leafletMapInstance.getPanes().overlayPane.appendChild(overlayDiv);
+    requestAnimationFrame(() => {
+        isSyncScheduled = false;
+        if (!layoutOverlayInstance || !leafletMapInstance) return;
+        const imgEl = layoutOverlayInstance.getElement();
+        let overlayDiv = document.getElementById('gisPlotsOverlay');
+        if (!imgEl) return;
+
+        if (!overlayDiv) {
+            overlayDiv = document.createElement('div');
+            overlayDiv.id = 'gisPlotsOverlay';
+            overlayDiv.className = 'gis-plots-overlay leaflet-zoom-animated';
+            overlayDiv.style.position = 'absolute';
+            overlayDiv.style.pointerEvents = 'none';
+            overlayDiv.style.zIndex = '450';
+            overlayDiv.style.willChange = 'transform, left, top, width, height';
+            if (imgEl.parentNode) {
+                imgEl.parentNode.appendChild(overlayDiv);
+            } else {
+                leafletMapInstance.getPanes().overlayPane.appendChild(overlayDiv);
+            }
         }
-    }
 
-    overlayDiv.style.left = imgEl.style.left || '0px';
-    overlayDiv.style.top = imgEl.style.top || '0px';
-    overlayDiv.style.width = imgEl.style.width || (imgEl.offsetWidth + 'px');
-    overlayDiv.style.height = imgEl.style.height || (imgEl.offsetHeight + 'px');
-    overlayDiv.style.transform = imgEl.style.transform || '';
-    overlayDiv.style.transformOrigin = imgEl.style.transformOrigin || '0 0';
+        overlayDiv.style.left = imgEl.style.left || '0px';
+        overlayDiv.style.top = imgEl.style.top || '0px';
+        overlayDiv.style.width = imgEl.style.width || (imgEl.style.maxWidth || '100%');
+        overlayDiv.style.height = imgEl.style.height || (imgEl.style.maxHeight || '100%');
+        overlayDiv.style.transform = imgEl.style.transform || '';
+        overlayDiv.style.transformOrigin = imgEl.style.transformOrigin || '0 0';
+    });
 }
 
 function initLeafletMap() {
@@ -1800,7 +1809,12 @@ function initLeafletMap() {
     leafletMapInstance = L.map('leafletMap', {
         center: center,
         zoom: 18,
-        maxZoom: 21
+        maxZoom: 21,
+        zoomAnimation: true,
+        fadeAnimation: true,
+        markerZoomAnimation: true,
+        wheelDebounceTime: 30,
+        wheelPxPerZoomLevel: 120
     });
 
     const googleSat = L.tileLayer('https://{s}.google.com/vt/lyrs=y&x={x}&y={y}&z={z}', {
