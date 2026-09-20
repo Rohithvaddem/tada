@@ -58,11 +58,11 @@ const sidebarCloseBtn = document.getElementById('sidebarCloseBtn');
 // Statistics DOM
 const statTotalPlots = document.getElementById('statTotalPlots');
 const statAvailablePlots = document.getElementById('statAvailablePlots');
+const statAspirealtyPlots = document.getElementById('statAspirealtyPlots');
 const statSoldPlots = document.getElementById('statSoldPlots');
 const statHoldPlots = document.getElementById('statHoldPlots');
 const statMortgagePlots = document.getElementById('statMortgagePlots');
 const statRegisteredPlots = document.getElementById('statRegisteredPlots');
-const statAspirealtyPlots = document.getElementById('statAspirealtyPlots');
 const statPremKumarPlots = document.getElementById('statPremKumarPlots');
 const statSureshPlots = document.getElementById('statSureshPlots');
 const statSoumithPlots = document.getElementById('statSoumithPlots');
@@ -126,13 +126,42 @@ window.addEventListener('resize', fitMapToViewport);
 // Safety fallback: ensure loading screen is NEVER stuck
 setTimeout(dismissLoader, 1500);
 
+function normalizePlotData(data) {
+    if (!Array.isArray(data)) return [];
+    return data.map(p => {
+        const pNum = parseInt(p.plot_no, 10);
+        const isAspirealty = (pNum >= 1 && pNum <= 79 && ![18, 23, 24, 25, 39].includes(pNum)) ||
+                            (String(p.reference_name || '').toUpperCase().trim() === 'ASPIREALTY');
+        const curStatus = String(p.plot_status || '').toUpperCase().trim();
+        if (isAspirealty && (curStatus === '' || curStatus === 'AVAILABLE')) {
+            return { ...p, plot_status: 'ASPIREALTY' };
+        }
+        return p;
+    });
+}
+
+function getPlotEffectiveStatus(item) {
+    if (!item) return 'AVAILABLE';
+    const s = String(item.plot_status || '').toUpperCase().trim();
+    if (s === 'SOLD' || s === 'HOLD' || s === 'MORTGAGE' || s === 'REGISTERED' || s === 'ASPIREALTY') {
+        return s;
+    }
+    const pNum = parseInt(item.plot_no, 10);
+    const isAspirealty = (pNum >= 1 && pNum <= 79 && ![18, 23, 24, 25, 39].includes(pNum)) ||
+                        (String(item.reference_name || '').toUpperCase().trim() === 'ASPIREALTY');
+    if (isAspirealty) {
+        return 'ASPIREALTY';
+    }
+    return 'AVAILABLE';
+}
+
 // Initialization
 function initApp() {
     // Check local storage for custom database updates
     const localData = localStorage.getItem('aspire_avatar2_data');
     if (localData) {
         try {
-            plotData = JSON.parse(localData);
+            plotData = normalizePlotData(JSON.parse(localData));
             renderPlotDots();
             updateStatistics();
             setTimeout(fitMapToViewport, 100);
@@ -145,9 +174,9 @@ function initApp() {
 
     // Immediately initialize from bundled data.js so there is zero delay
     if (typeof plotDataRawTada !== 'undefined') {
-        plotData = plotDataRawTada;
+        plotData = normalizePlotData(plotDataRawTada);
     } else if (typeof plotDataRaw !== 'undefined') {
-        plotData = plotDataRaw;
+        plotData = normalizePlotData(plotDataRaw);
     } else {
         console.warn('Waiting for offline dataset...');
     }
@@ -164,7 +193,7 @@ function initApp() {
         })
         .then(data => {
             if (data && Array.isArray(data)) {
-                plotData = data;
+                plotData = normalizePlotData(data);
                 renderPlotDots();
                 updateStatistics();
                 setTimeout(fitMapToViewport, 100);
@@ -182,31 +211,31 @@ function initApp() {
 
 function getStatusColor(status, plotNo, detail) {
     const s = String(status || '').toUpperCase().trim();
-
-    // Specific requested plot statuses & colors:
-    // AVAILABLE: Green (#10b981)
-    // SOLD: Dark Blue (#1d4ed8)
-    // HOLD: Violet (#8b5cf6)
-    // MORTGAGE / MORTAGAGE: Orange (#f97316)
-    // REGISTERED: Red (#ef4444)
-    // ASPIREALTY: Light Blue (#38bdf8)
-    if (s === 'AVAILABLE') return '#10b981';
-    if (s === 'SOLD' || s === 'BOOKED' || s === 'CLUB HOUSE') return '#1d4ed8';
-    if (s === 'HOLD') return '#8b5cf6';
-    if (s === 'MORTGAGE' || s === 'MORTAGAGE') return '#f97316';
-    if (s === 'REGISTERED') return '#ef4444';
-    if (s === 'ASPIREALTY') return '#38bdf8';
-
-    // Fallback if status is unset/empty but reference is ASPIREALTY
-    if (detail && String(detail.reference_name || '').toUpperCase().trim() === 'ASPIREALTY' && (!s || s === 'N/A')) {
-        return '#38bdf8';
+    const pNum = parseInt(plotNo, 10);
+    
+    // Explicit statuses take priority
+    if (s === 'AVAILABLE') {
+        // Rule: Plots 1-79 except 18, 23, 24, 25, 39 are light blue (Aspirealty share plots)
+        const isAspirealty = (pNum >= 1 && pNum <= 79 && ![18, 23, 24, 25, 39].includes(pNum)) ||
+                            (detail && String(detail.reference_name || '').toUpperCase().trim() === 'ASPIREALTY');
+        if (isAspirealty) return '#38bdf8'; // Light Blue
+        return '#10b981'; // Green
     }
+    if (s === 'SOLD' || s === 'BOOKED') return '#1d4ed8'; // Dark Blue
+    if (s === 'HOLD') return '#8b5cf6'; // Violet
+    if (s === 'MORTGAGE') return '#f97316'; // Orange
+    if (s === 'REGISTERED') return '#ef4444'; // Red
+    if (s === 'ASPIREALTY') return '#38bdf8'; // Light Blue
 
-    // Legacy status fallbacks
-    if (s === 'EVERYONES' || s === "EVERYONE'S" || s === 'EVERYONE') return '#8b5cf6';
-    if (s === 'PREM KUMAR' || s === 'PREMKUMAR' || s === 'PREM') return '#f97316';
-    if (s === 'SURESH') return '#ef4444';
-    if (s === 'SOUMITH') return '#1d4ed8';
+    const isAspirealty = (pNum >= 1 && pNum <= 79 && ![18, 23, 24, 25, 39].includes(pNum)) ||
+                        (detail && String(detail.reference_name || '').toUpperCase().trim() === 'ASPIREALTY');
+    if (isAspirealty) return '#38bdf8'; // Light Blue
+
+    // Legacy statuses for backward compatibility
+    if (s === 'EVERYONES' || s === "EVERYONE'S" || s === 'EVERYONE') return '#8b5cf6'; // Violet
+    if (s === 'PREM KUMAR' || s === 'PREMKUMAR' || s === 'PREM') return '#f97316'; // Orange
+    if (s === 'SURESH') return '#ef4444'; // Red
+    if (s === 'SOUMITH') return '#1d4ed8'; // Dark Blue
 
     return '#10b981'; // Green default
 }
@@ -553,20 +582,26 @@ function applyFilters() {
         const plotNo = dot.dataset.plotNo;
         const facing = dot.dataset.facing;
         const rawStatus = String(dot.dataset.status || '').toUpperCase().trim();
+        const pNum = parseInt(plotNo, 10);
         
         let normalizedStatus = 'AVAILABLE';
-        if (rawStatus === 'SOLD' || rawStatus === 'BOOKED' || rawStatus === 'CLUB HOUSE' || rawStatus === 'SOUMITH') {
+        if (rawStatus === 'SOLD' || rawStatus === 'BOOKED' || rawStatus === 'SOUMITH') {
             normalizedStatus = 'SOLD';
         } else if (rawStatus === 'HOLD' || rawStatus === 'EVERYONES' || rawStatus === "EVERYONE'S" || rawStatus === 'EVERYONE') {
             normalizedStatus = 'HOLD';
-        } else if (rawStatus === 'MORTGAGE' || rawStatus === 'MORTAGAGE' || rawStatus === 'PREM KUMAR' || rawStatus === 'PREMKUMAR' || rawStatus === 'PREM') {
+        } else if (rawStatus === 'MORTGAGE' || rawStatus === 'PREM KUMAR' || rawStatus === 'PREMKUMAR' || rawStatus === 'PREM') {
             normalizedStatus = 'MORTGAGE';
         } else if (rawStatus === 'REGISTERED' || rawStatus === 'SURESH') {
             normalizedStatus = 'REGISTERED';
         } else if (rawStatus === 'ASPIREALTY') {
             normalizedStatus = 'ASPIREALTY';
         } else {
-            normalizedStatus = 'AVAILABLE';
+            const isAspirealty = (pNum >= 1 && pNum <= 79 && ![18, 23, 24, 25, 39].includes(pNum));
+            if (isAspirealty) {
+                normalizedStatus = 'ASPIREALTY';
+            } else {
+                normalizedStatus = 'AVAILABLE';
+            }
         }
         
         let show = true;
@@ -637,7 +672,8 @@ function openPlotModal(plotNo) {
         reference_name: 'N/A'
     };
     
-    const color = getStatusColor(item.plot_status, item.plot_no, item);
+    const effectiveStatus = getPlotEffectiveStatus(item);
+    const color = getStatusColor(effectiveStatus, item.plot_no, item);
     
     let editButtonHtml = '';
     if (isAdminLoggedIn) {
@@ -648,8 +684,8 @@ function openPlotModal(plotNo) {
         `;
     }
     
-    const statusUpper = String(item.plot_status || '').toUpperCase().trim();
-    const isDealSimulatorAllowed = isDirectorLoggedIn && (statusUpper === 'AVAILABLE' || statusUpper === 'RESALE');
+    const statusUpper = effectiveStatus.toUpperCase();
+    const isDealSimulatorAllowed = isDirectorLoggedIn && (statusUpper === 'AVAILABLE' || statusUpper === 'ASPIREALTY' || statusUpper === 'RESALE');
 
     modalBody.innerHTML = `
         <div class="detail-card">
@@ -659,7 +695,7 @@ function openPlotModal(plotNo) {
             </div>
             <div class="detail-row">
                 <span class="detail-label">Status</span>
-                <span class="status-badge" style="--badge-color: ${color}; --badge-glow: ${color}">${item.plot_status}</span>
+                <span class="status-badge" style="--badge-color: ${color}; --badge-glow: ${color}">${effectiveStatus}</span>
             </div>
             <div class="detail-row">
                 <span class="detail-label">Plot Area</span>
@@ -1108,116 +1144,87 @@ function updateStatistics() {
     };
 
     plotData.forEach(p => {
+        const pNum = parseInt(p.plot_no, 10);
         const s = String(p.plot_status || '').toUpperCase().trim();
-        if (s === 'SOLD' || s === 'BOOKED' || s === 'CLUB HOUSE' || s === 'SOUMITH') {
+        const isAspirealty = (pNum >= 1 && pNum <= 79 && ![18, 23, 24, 25, 39].includes(pNum)) ||
+                            (String(p.reference_name || '').toUpperCase().trim() === 'ASPIREALTY');
+
+        if (s === 'SOLD' || s === 'BOOKED' || s === 'SOUMITH') {
             counts['SOLD']++;
         } else if (s === 'HOLD' || s === 'EVERYONES' || s === "EVERYONE'S" || s === 'EVERYONE') {
             counts['HOLD']++;
-        } else if (s === 'MORTGAGE' || s === 'MORTAGAGE' || s === 'PREM KUMAR' || s === 'PREMKUMAR' || s === 'PREM') {
+        } else if (s === 'MORTGAGE' || s === 'PREM KUMAR' || s === 'PREMKUMAR' || s === 'PREM') {
             counts['MORTGAGE']++;
         } else if (s === 'REGISTERED' || s === 'SURESH') {
             counts['REGISTERED']++;
-        } else if (s === 'ASPIREALTY') {
+        } else if (s === 'ASPIREALTY' || (isAspirealty && (s === 'AVAILABLE' || !s))) {
             counts['ASPIREALTY']++;
         } else {
             counts['AVAILABLE']++;
         }
     });
 
-    if (statAvailablePlots) statAvailablePlots.textContent = counts['AVAILABLE'];
-    const statSoldEl = document.getElementById('statSoldPlots');
-    if (statSoldEl) statSoldEl.textContent = counts['SOLD'];
-    const statHoldEl = document.getElementById('statHoldPlots');
-    if (statHoldEl) statHoldEl.textContent = counts['HOLD'];
-    const statMortgageEl = document.getElementById('statMortgagePlots');
-    if (statMortgageEl) statMortgageEl.textContent = counts['MORTGAGE'];
-    const statRegisteredEl = document.getElementById('statRegisteredPlots');
-    if (statRegisteredEl) statRegisteredEl.textContent = counts['REGISTERED'];
-    const statAspirealtyEl = document.getElementById('statAspirealtyPlots');
-    if (statAspirealtyEl) statAspirealtyEl.textContent = counts['ASPIREALTY'];
+    const statAvail = document.getElementById('statAvailablePlots');
+    const statAspire = document.getElementById('statAspirealtyPlots');
+    const statSold = document.getElementById('statSoldPlots');
+    const statHold = document.getElementById('statHoldPlots');
+    const statMort = document.getElementById('statMortgagePlots');
+    const statReg = document.getElementById('statRegisteredPlots');
 
-    // Legacy DOM element fallbacks
-    if (statPremKumarPlots) statPremKumarPlots.textContent = counts['MORTGAGE'];
-    if (statSureshPlots) statSureshPlots.textContent = counts['REGISTERED'];
-    if (statSoumithPlots) statSoumithPlots.textContent = counts['SOLD'];
+    if (statAvail) statAvail.textContent = counts['AVAILABLE'];
+    if (statAspire) statAspire.textContent = counts['ASPIREALTY'];
+    if (statSold) statSold.textContent = counts['SOLD'];
+    if (statHold) statHold.textContent = counts['HOLD'];
+    if (statMort) statMort.textContent = counts['MORTGAGE'];
+    if (statReg) statReg.textContent = counts['REGISTERED'];
     
+    const legendConfig = [
+        { key: 'AVAILABLE', label: 'AVAILABLE', color: '#10b981' },
+        { key: 'SOLD', label: 'SOLD', color: '#1d4ed8' },
+        { key: 'HOLD', label: 'HOLD', color: '#8b5cf6' },
+        { key: 'MORTGAGE', label: 'MORTGAGE', color: '#f97316' },
+        { key: 'REGISTERED', label: 'REGISTERED', color: '#ef4444' },
+        { key: 'ASPIREALTY', label: 'ASPIREALTY', color: '#38bdf8' }
+    ];
+
     // Render Sidebar Legend items
     if (statusLegendList) {
-        statusLegendList.innerHTML = `
-            <div class="legend-item ${activeStatusFilters.has('AVAILABLE') ? 'active' : ''}" id="legend-AVAILABLE" style="--legend-color: #10b981;">
+        statusLegendList.innerHTML = legendConfig.map(cfg => `
+            <div class="legend-item ${activeStatusFilters.has(cfg.key) ? 'active' : ''}" id="legend-${cfg.key}" style="--legend-color: ${cfg.color};">
                 <div class="legend-label-group">
-                    <div class="legend-color-dot" style="background-color: #10b981;"></div>
-                    <span class="legend-name">AVAILABLE</span>
+                    <div class="legend-color-dot" style="background-color: ${cfg.color};"></div>
+                    <span class="legend-name">${cfg.label}</span>
                 </div>
-                <span class="legend-count">${counts['AVAILABLE']}</span>
+                <span class="legend-count">${counts[cfg.key] || 0}</span>
             </div>
-            <div class="legend-item ${activeStatusFilters.has('SOLD') ? 'active' : ''}" id="legend-SOLD" style="--legend-color: #1d4ed8;">
-                <div class="legend-label-group">
-                    <div class="legend-color-dot" style="background-color: #1d4ed8;"></div>
-                    <span class="legend-name">SOLD</span>
-                </div>
-                <span class="legend-count">${counts['SOLD']}</span>
-            </div>
-            <div class="legend-item ${activeStatusFilters.has('HOLD') ? 'active' : ''}" id="legend-HOLD" style="--legend-color: #8b5cf6;">
-                <div class="legend-label-group">
-                    <div class="legend-color-dot" style="background-color: #8b5cf6;"></div>
-                    <span class="legend-name">HOLD</span>
-                </div>
-                <span class="legend-count">${counts['HOLD']}</span>
-            </div>
-            <div class="legend-item ${activeStatusFilters.has('MORTGAGE') ? 'active' : ''}" id="legend-MORTGAGE" style="--legend-color: #f97316;">
-                <div class="legend-label-group">
-                    <div class="legend-color-dot" style="background-color: #f97316;"></div>
-                    <span class="legend-name">MORTGAGE</span>
-                </div>
-                <span class="legend-count">${counts['MORTGAGE']}</span>
-            </div>
-            <div class="legend-item ${activeStatusFilters.has('REGISTERED') ? 'active' : ''}" id="legend-REGISTERED" style="--legend-color: #ef4444;">
-                <div class="legend-label-group">
-                    <div class="legend-color-dot" style="background-color: #ef4444;"></div>
-                    <span class="legend-name">REGISTERED</span>
-                </div>
-                <span class="legend-count">${counts['REGISTERED']}</span>
-            </div>
-            <div class="legend-item ${activeStatusFilters.has('ASPIREALTY') ? 'active' : ''}" id="legend-ASPIREALTY" style="--legend-color: #38bdf8;">
-                <div class="legend-label-group">
-                    <div class="legend-color-dot" style="background-color: #38bdf8;"></div>
-                    <span class="legend-name">ASPIREALTY</span>
-                </div>
-                <span class="legend-count">${counts['ASPIREALTY']}</span>
-            </div>
-        `;
+        `).join('');
+
+        legendConfig.forEach(cfg => {
+            const el = document.getElementById(`legend-${cfg.key}`);
+            if (el) {
+                el.addEventListener('click', () => {
+                    if (activeStatusFilters.has(cfg.key)) {
+                        activeStatusFilters.delete(cfg.key);
+                        el.classList.remove('active');
+                    } else {
+                        activeStatusFilters.add(cfg.key);
+                        el.classList.add('active');
+                    }
+                    applyFilters();
+                });
+            }
+        });
     }
 
     // Render Floating Card Items
     const floatingLegendBody = document.getElementById('floatingLegendBody');
     if (floatingLegendBody) {
-        floatingLegendBody.innerHTML = `
-            <div class="floating-legend-item ${activeStatusFilters.has('AVAILABLE') ? 'active' : ''}" data-status="AVAILABLE" style="--status-color: #10b981;">
-                <div class="label-group"><span class="color-dot" style="background-color: #10b981;"></span><span>AVAILABLE</span></div>
-                <span class="count-badge">${counts['AVAILABLE']}</span>
+        floatingLegendBody.innerHTML = legendConfig.map(cfg => `
+            <div class="floating-legend-item ${activeStatusFilters.has(cfg.key) ? 'active' : ''}" data-status="${cfg.key}" style="--status-color: ${cfg.color};">
+                <div class="label-group"><span class="color-dot" style="background-color: ${cfg.color};"></span><span>${cfg.label}</span></div>
+                <span class="count-badge">${counts[cfg.key] || 0}</span>
             </div>
-            <div class="floating-legend-item ${activeStatusFilters.has('SOLD') ? 'active' : ''}" data-status="SOLD" style="--status-color: #1d4ed8;">
-                <div class="label-group"><span class="color-dot" style="background-color: #1d4ed8;"></span><span>SOLD</span></div>
-                <span class="count-badge">${counts['SOLD']}</span>
-            </div>
-            <div class="floating-legend-item ${activeStatusFilters.has('HOLD') ? 'active' : ''}" data-status="HOLD" style="--status-color: #8b5cf6;">
-                <div class="label-group"><span class="color-dot" style="background-color: #8b5cf6;"></span><span>HOLD</span></div>
-                <span class="count-badge">${counts['HOLD']}</span>
-            </div>
-            <div class="floating-legend-item ${activeStatusFilters.has('MORTGAGE') ? 'active' : ''}" data-status="MORTGAGE" style="--status-color: #f97316;">
-                <div class="label-group"><span class="color-dot" style="background-color: #f97316;"></span><span>MORTGAGE</span></div>
-                <span class="count-badge">${counts['MORTGAGE']}</span>
-            </div>
-            <div class="floating-legend-item ${activeStatusFilters.has('REGISTERED') ? 'active' : ''}" data-status="REGISTERED" style="--status-color: #ef4444;">
-                <div class="label-group"><span class="color-dot" style="background-color: #ef4444;"></span><span>REGISTERED</span></div>
-                <span class="count-badge">${counts['REGISTERED']}</span>
-            </div>
-            <div class="floating-legend-item ${activeStatusFilters.has('ASPIREALTY') ? 'active' : ''}" data-status="ASPIREALTY" style="--status-color: #38bdf8;">
-                <div class="label-group"><span class="color-dot" style="background-color: #38bdf8;"></span><span>ASPIREALTY</span></div>
-                <span class="count-badge">${counts['ASPIREALTY']}</span>
-            </div>
-        `;
+        `).join('');
 
         floatingLegendBody.querySelectorAll('.floating-legend-item').forEach(item => {
             const st = item.dataset.status;
@@ -1246,24 +1253,6 @@ function updateStatistics() {
             if (e.target === simBackdrop) simBackdrop.classList.remove('show');
         });
     }
-
-    // Attach form listeners for Sidebar Legend selections
-    ['AVAILABLE', 'SOLD', 'HOLD', 'MORTGAGE', 'REGISTERED', 'ASPIREALTY'].forEach(status => {
-        const itemKey = status.replace(' ', '_');
-        const item = document.getElementById(`legend-${itemKey}`);
-        if (item) {
-            item.addEventListener('click', () => {
-                if (activeStatusFilters.has(status)) {
-                    activeStatusFilters.delete(status);
-                    item.classList.remove('active');
-                } else {
-                    activeStatusFilters.add(status);
-                    item.classList.add('active');
-                }
-                applyFilters();
-            });
-        }
-    });
 }
 
 // ----------------------------------------------------
@@ -1647,6 +1636,8 @@ function openPlotEditForm(plotNo) {
         reference_name: ''
     };
 
+    const currentStatus = getPlotEffectiveStatus(item);
+
     modalBody.innerHTML = `
         <div class="edit-plot-form" style="display: flex; flex-direction: column; gap: 12px; text-align: left; max-height: 70vh; overflow-y: auto; padding-right: 8px;">
             <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); padding-bottom: 8px; margin-bottom: 8px;">
@@ -1659,12 +1650,12 @@ function openPlotEditForm(plotNo) {
             <div style="display: flex; flex-direction: column; gap: 4px;">
                 <label style="font-size: 11px; font-weight: 600; color: var(--text-secondary);">Plot Status</label>
                 <select id="editStatus" style="background: var(--bg-tertiary); border: 1px solid var(--border-color); color: #fff; padding: 8px 10px; border-radius: 6px; font-size: 13px; outline: none; width: 100%;">
-                    <option value="AVAILABLE" ${item.plot_status === 'AVAILABLE' ? 'selected' : ''}>AVAILABLE (Green)</option>
-                    <option value="SOLD" ${item.plot_status === 'SOLD' ? 'selected' : ''}>SOLD (Dark Blue)</option>
-                    <option value="HOLD" ${item.plot_status === 'HOLD' ? 'selected' : ''}>HOLD (Violet)</option>
-                    <option value="MORTGAGE" ${(item.plot_status === 'MORTGAGE' || item.plot_status === 'MORTAGAGE') ? 'selected' : ''}>MORTGAGE (Orange)</option>
-                    <option value="REGISTERED" ${item.plot_status === 'REGISTERED' ? 'selected' : ''}>REGISTERED (Red)</option>
-                    <option value="ASPIREALTY" ${item.plot_status === 'ASPIREALTY' ? 'selected' : ''}>ASPIREALTY (Light Blue)</option>
+                    <option value="AVAILABLE" ${currentStatus === 'AVAILABLE' ? 'selected' : ''}>AVAILABLE (Green)</option>
+                    <option value="SOLD" ${currentStatus === 'SOLD' ? 'selected' : ''}>SOLD (Dark Blue)</option>
+                    <option value="HOLD" ${currentStatus === 'HOLD' ? 'selected' : ''}>HOLD (Violet)</option>
+                    <option value="MORTGAGE" ${currentStatus === 'MORTGAGE' ? 'selected' : ''}>MORTGAGE (Orange)</option>
+                    <option value="REGISTERED" ${currentStatus === 'REGISTERED' ? 'selected' : ''}>REGISTERED (Red)</option>
+                    <option value="ASPIREALTY" ${currentStatus === 'ASPIREALTY' ? 'selected' : ''}>ASPIREALTY (Light Blue)</option>
                 </select>
             </div>
             
