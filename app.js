@@ -662,6 +662,13 @@ function openPlotModal(plotNo) {
             openDealSimulator(plotNo);
         });
     }
+
+    const editBtn = document.getElementById('editPlotBtn');
+    if (editBtn) {
+        editBtn.addEventListener('click', () => {
+            openPlotEditForm(plotNo);
+        });
+    }
     
     modalBackdrop.classList.add('show');
 }
@@ -1623,6 +1630,10 @@ function openPlotEditForm(plotNo) {
                     <option value="West" ${item.facing === 'West' ? 'selected' : ''}>West</option>
                     <option value="North" ${item.facing === 'North' ? 'selected' : ''}>North</option>
                     <option value="South" ${item.facing === 'South' ? 'selected' : ''}>South</option>
+                    <option value="East (Commercial)" ${item.facing === 'East (Commercial)' ? 'selected' : ''}>East (Commercial)</option>
+                    <option value="South - East" ${item.facing === 'South - East' ? 'selected' : ''}>South - East</option>
+                    <option value="South - West" ${item.facing === 'South - West' ? 'selected' : ''}>South - West</option>
+                    <option value="South - East (Commercial)" ${item.facing === 'South - East (Commercial)' ? 'selected' : ''}>South - East (Commercial)</option>
                     <option value="North-East" ${item.facing === 'North-East' ? 'selected' : ''}>North-East</option>
                     <option value="North-West" ${item.facing === 'North-West' ? 'selected' : ''}>North-West</option>
                     <option value="South-East" ${item.facing === 'South-East' ? 'selected' : ''}>South-East</option>
