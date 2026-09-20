@@ -27,6 +27,13 @@ let isAdminLoggedIn = !!userRole;
 let isDirectorLoggedIn = userRole === 'director';
 let isStaffLoggedIn = userRole === 'staff';
 
+// GIS Satellite Map View State
+let leafletMapInstance = null;
+let layoutOverlayInstance = null;
+let leafletMarkersLayer = null;
+let currentViewMode = 'gis'; // Default to Google Satellite Map
+let zoomRafId = null;
+
 // DOM Cache
 const mapViewport = document.getElementById('mapViewport');
 const mapContainer = document.getElementById('mapContainer');
@@ -79,6 +86,16 @@ if (document.readyState === 'loading') {
     startTadaApp();
 }
 
+function dismissLoader() {
+    const loader = document.getElementById('loadingScreen');
+    if (loader && !loader.classList.contains('fade-out')) {
+        loader.classList.add('fade-out');
+        setTimeout(() => {
+            if (loader.parentNode) loader.remove();
+        }, 600);
+    }
+}
+
 function startTadaApp() {
     initApp();
     setupMapControls();
@@ -89,24 +106,20 @@ function startTadaApp() {
     setupAdmin();
     setupMapViewToggle();
     initLeafletMap();
+
+    // Dismiss loader promptly once app has initialized
+    setTimeout(dismissLoader, 400);
 }
 
 // Ensure map is fitted once all resources are loaded and on resize
 window.addEventListener('load', () => {
     fitMapToViewport();
-    
-    // Smooth transition to hide the loader screen
-    setTimeout(() => {
-        const loader = document.getElementById('loadingScreen');
-        if (loader) {
-            loader.classList.add('fade-out');
-            setTimeout(() => {
-                loader.remove();
-            }, 600); // Remove element after opacity transition completes
-        }
-    }, 1200); // Keep loader visible for 1.2 seconds for a premium feel
+    dismissLoader();
 });
 window.addEventListener('resize', fitMapToViewport);
+
+// Safety fallback: ensure loading screen is NEVER stuck
+setTimeout(dismissLoader, 1500);
 
 // Initialization
 function initApp() {
@@ -125,32 +138,36 @@ function initApp() {
         }
     }
 
-    // Load standard data from data.json or fallback
+    // Immediately initialize from bundled data.js so there is zero delay
+    if (typeof plotDataRawTada !== 'undefined') {
+        plotData = plotDataRawTada;
+    } else if (typeof plotDataRaw !== 'undefined') {
+        plotData = plotDataRaw;
+    } else {
+        console.warn('Waiting for offline dataset...');
+    }
+    renderPlotDots();
+    updateStatistics();
+    setTimeout(fitMapToViewport, 100);
+    setupAdminState();
+
+    // Optionally check if data.json exists in background without blocking UI
     fetch('data.json')
         .then(res => {
             if (!res.ok) throw new Error('Data fetch failed');
             return res.json();
         })
         .then(data => {
-            plotData = data;
-            renderPlotDots();
-            updateStatistics();
-            setTimeout(fitMapToViewport, 100);
-            setupAdminState();
-        })
-        .catch(err => {
-            console.warn('Network issue. Falling back to data.js:', err);
-            if (typeof plotDataRawTada !== 'undefined') {
-                plotData = plotDataRawTada;
-            } else if (typeof plotDataRaw !== 'undefined') {
-                plotData = plotDataRaw;
-            } else {
-                console.error('Offline dataset not found.');
+            if (data && Array.isArray(data)) {
+                plotData = data;
+                renderPlotDots();
+                updateStatistics();
+                setTimeout(fitMapToViewport, 100);
+                setupAdminState();
             }
-            renderPlotDots();
-            updateStatistics();
-            setTimeout(fitMapToViewport, 100);
-            setupAdminState();
+        })
+        .catch(() => {
+            // data.js is already active
         });
 }
 
@@ -361,7 +378,7 @@ function setupMapControls() {
 
 function updateMapTransform() {
     mapContainer.style.setProperty('--zoom-scale', zoomScale);
-    mapContainer.style.transform = `translate(${panX}px, ${panY}px) scale(${zoomScale})`;
+    mapContainer.style.transform = `translate3d(${panX}px, ${panY}px, 0) scale(${zoomScale})`;
 }
 
 function fitMapToViewport() {
@@ -1699,15 +1716,20 @@ function savePlotEdits(plotNo) {
     openPlotModal(plotNo);
 }
 
-// GIS Satellite Map View State & Setup
-let leafletMapInstance = null;
-let layoutOverlayInstance = null;
-let leafletMarkersLayer = null;
-let currentViewMode = 'gis'; // Default to Google Satellite Map
+// GIS Satellite Map View Setup
 
 function setupMapViewToggle() {
     const btn = document.getElementById('mapViewToggleBtn');
     if (!btn) return;
+
+    function updateBtn() {
+        if (currentViewMode === 'gis') {
+            btn.innerHTML = '<i class="fa-solid fa-map"></i> <span>2D Plan View</span>';
+        } else {
+            btn.innerHTML = '<i class="fa-solid fa-satellite"></i> <span>Satellite GIS View</span>';
+        }
+    }
+    updateBtn();
 
     btn.addEventListener('click', () => {
         const mapContainer = document.getElementById('mapContainer');
@@ -1730,7 +1752,9 @@ function setupMapViewToggle() {
             if (leafletMapDiv) leafletMapDiv.style.display = 'none';
             if (mapContainer) mapContainer.style.display = 'block';
             if (mapTip) mapTip.style.display = 'block';
+            setTimeout(fitMapToViewport, 50);
         }
+        updateBtn();
     });
 }
 
@@ -1760,34 +1784,48 @@ function initLeafletMap() {
     leafletMapInstance = L.map('leafletMap', {
         center: center,
         zoom: 18,
+        minZoom: 16,
         maxZoom: 21,
+        zoomSnap: 0.25,
+        zoomDelta: 0.5,
+        wheelPxPerZoomLevel: 100,
+        wheelDebounceTime: 20,
         zoomAnimation: true,
         fadeAnimation: true,
         markerZoomAnimation: true,
-        wheelDebounceTime: 40
+        bounceAtZoomLimits: false,
+        inertia: true,
+        inertiaDeceleration: 3000
     });
 
     const googleSat = L.tileLayer('https://{s}.google.com/vt/lyrs=y&x={x}&y={y}&z={z}', {
         maxZoom: 21,
         subdomains: ['mt0', 'mt1', 'mt2', 'mt3'],
-        attribution: '&copy; Google Maps'
+        attribution: '&copy; Google Maps',
+        updateWhenZooming: false,
+        keepBuffer: 4
     }).addTo(leafletMapInstance);
 
     const googleRoadmap = L.tileLayer('https://{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}', {
         maxZoom: 21,
         subdomains: ['mt0', 'mt1', 'mt2', 'mt3'],
-        attribution: '&copy; Google Maps'
+        attribution: '&copy; Google Maps',
+        updateWhenZooming: false,
+        keepBuffer: 4
     });
 
     const esriSat = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
         maxZoom: 21,
-        attribution: '&copy; Esri World Imagery'
+        attribution: '&copy; Esri World Imagery',
+        updateWhenZooming: false,
+        keepBuffer: 4
     });
 
-    // Add layout overlay from extracted KMZ GroundOverlay
-    layoutOverlayInstance = L.imageOverlay('map_layout.png', bounds, {
+    // Add layout overlay from extracted KMZ GroundOverlay (optimized WebP with RGBA transparency)
+    layoutOverlayInstance = L.imageOverlay('map_layout.webp?v=1.0.6', bounds, {
         opacity: 0.85,
-        interactive: true
+        interactive: true,
+        errorOverlayUrl: 'map_layout.png?v=1.0.6'
     }).addTo(leafletMapInstance);
 
     leafletMarkersLayer = L.layerGroup().addTo(leafletMapInstance);
@@ -1805,7 +1843,25 @@ function initLeafletMap() {
 
     L.control.layers(baseLayers, overlays).addTo(leafletMapInstance);
 
+    leafletMapInstance.on('zoom zoomend viewreset', updateLeafletMarkerZoomScale);
+    updateLeafletMarkerZoomScale();
+
     renderLeafletPlotMarkers();
+}
+
+function updateLeafletMarkerZoomScale() {
+    if (!leafletMapInstance) return;
+    const raf = typeof window !== 'undefined' && window.requestAnimationFrame ? window.requestAnimationFrame : (cb => setTimeout(cb, 16));
+    const cancelRaf = typeof window !== 'undefined' && window.cancelAnimationFrame ? window.cancelAnimationFrame : clearTimeout;
+    if (zoomRafId) cancelRaf(zoomRafId);
+    zoomRafId = raf(() => {
+        const z = leafletMapInstance.getZoom();
+        const scale = Math.max(0.65, Math.min(Math.pow(1.38, z - 18), 3.0));
+        const mapEl = document.getElementById('leafletMap');
+        if (mapEl) {
+            mapEl.style.setProperty('--plot-scale', scale.toFixed(3));
+        }
+    });
 }
 
 function renderLeafletPlotMarkers() {
@@ -1847,8 +1903,8 @@ function renderLeafletPlotMarkers() {
         const customIcon = L.divIcon({
             className: 'leaflet-plot-marker-container',
             html: `<button class="plot-dot leaflet-plot-dot-item" id="leaflet-plot-dot-${plotNo}" data-plot-no="${plotNo}" data-facing="${detail && detail.facing ? detail.facing : 'Unknown'}" data-status="${status}" style="--plot-color: ${color};">${plotNo}</button>`,
-            iconSize: [14, 14],
-            iconAnchor: [7, 7]
+            iconSize: [0, 0],
+            iconAnchor: [0, 0]
         });
 
         const marker = L.marker(exactLatLng, { icon: customIcon });
@@ -1861,4 +1917,4 @@ function renderLeafletPlotMarkers() {
     });
 
     applyFilters();
-
+}
