@@ -313,6 +313,7 @@ function renderPlotDots() {
 
 function setupMapControls() {
     mapViewport.addEventListener('mousedown', (e) => {
+        if (currentViewMode === 'gis') return;
         // Disallow panning if clicking a dot or details modal
         if (e.target.closest('.plot-dot') || e.target.closest('#plotModal')) return;
         isPanning = true;
@@ -322,7 +323,7 @@ function setupMapControls() {
     });
 
     window.addEventListener('mousemove', (e) => {
-        if (!isPanning) return;
+        if (!isPanning || currentViewMode === 'gis') return;
         panX = e.clientX - startX;
         panY = e.clientY - startY;
         updateMapTransform();
@@ -337,6 +338,7 @@ function setupMapControls() {
 
     // Zoom on wheel scroll
     mapViewport.addEventListener('wheel', (e) => {
+        if (currentViewMode === 'gis') return;
         e.preventDefault();
         const zoomIntensity = 0.1;
         
@@ -363,6 +365,7 @@ function setupMapControls() {
     // Touch support (mobile pan & pinch)
     let initialTouchDist = 0;
     mapViewport.addEventListener('touchstart', (e) => {
+        if (currentViewMode === 'gis') return;
         if (e.touches.length === 1) {
             if (e.target.closest('.plot-dot') || e.target.closest('#plotModal')) return;
             isPanning = true;
@@ -378,6 +381,7 @@ function setupMapControls() {
     });
 
     mapViewport.addEventListener('touchmove', (e) => {
+        if (currentViewMode === 'gis') return;
         if (isPanning && e.touches.length === 1) {
             panX = e.touches[0].clientX - startX;
             panY = e.touches[0].clientY - startY;
@@ -400,6 +404,7 @@ function setupMapControls() {
 
     // Double click to reset viewport
     mapViewport.addEventListener('dblclick', (e) => {
+        if (currentViewMode === 'gis') return;
         if (e.target.closest('.plot-dot') || e.target.closest('#plotModal')) return;
         fitMapToViewport();
     });
@@ -1916,17 +1921,37 @@ function ensureRotatedOverlayExtension() {
             }
         },
         _animateZoom: function (e) {
-            L.ImageOverlay.prototype._animateZoom.call(this, e);
-            if (this._image) {
-                this._image.style.transformOrigin = '50% 50%';
-                let currentTransform = this._image.style.transform || '';
-                currentTransform = currentTransform.replace(/\s*rotate\([^\)]*\)/g, '').trim();
-                if (this.options.rotation) {
-                    this._image.style.transform = currentTransform + ' rotate(' + (-this.options.rotation) + 'deg)';
-                } else {
-                    this._image.style.transform = currentTransform;
-                }
+            if (!this._image || !this._map) return;
+
+            const scale = this._map.getZoomScale(e.zoom);
+            const newBounds = this._map._latLngBoundsToNewLayerBounds(this._bounds, e.zoom, e.center);
+            const newCenter = newBounds.getCenter();
+
+            let w = parseFloat(this._image.style.width) || this._image.clientWidth || 0;
+            let h = parseFloat(this._image.style.height) || this._image.clientHeight || 0;
+
+            if (!w || !h) {
+                const curBounds = new L.Bounds(
+                    this._map.latLngToLayerPoint(this._bounds.getNorthWest()),
+                    this._map.latLngToLayerPoint(this._bounds.getSouthEast())
+                );
+                const curSize = curBounds.getSize();
+                w = curSize.x;
+                h = curSize.y;
             }
+
+            // With transformOrigin: '50% 50%', the element scales and rotates around (w/2, h/2).
+            // Translating by (newCenter.x - w/2, newCenter.y - h/2) places the element center
+            // exactly at newCenter at every frame of zoom animation without any displacement or jumping!
+            const optX = newCenter.x - w / 2;
+            const optY = newCenter.y - h / 2;
+
+            this._image.style.transformOrigin = '50% 50%';
+            const rot = this.options.rotation || 0;
+            const rotStr = rot ? ' rotate(' + (-rot) + 'deg)' : '';
+
+            L.DomUtil.setTransform(this._image, L.point(optX, optY), scale);
+            this._image.style.transform += rotStr;
         }
     });
 
@@ -1966,8 +1991,8 @@ function initLeafletMap() {
         maxZoom: 21,
         zoomSnap: 0.25,
         zoomDelta: 0.5,
-        wheelPxPerZoomLevel: 100,
-        wheelDebounceTime: 20,
+        wheelPxPerZoomLevel: 120,
+        wheelDebounceTime: 40,
         zoomAnimation: true,
         fadeAnimation: true,
         markerZoomAnimation: true,
@@ -1980,7 +2005,6 @@ function initLeafletMap() {
         maxZoom: 21,
         subdomains: ['mt0', 'mt1', 'mt2', 'mt3'],
         attribution: '&copy; Google Maps',
-        updateWhenZooming: false,
         keepBuffer: 4
     }).addTo(leafletMapInstance);
 
@@ -1988,14 +2012,12 @@ function initLeafletMap() {
         maxZoom: 21,
         subdomains: ['mt0', 'mt1', 'mt2', 'mt3'],
         attribution: '&copy; Google Maps',
-        updateWhenZooming: false,
         keepBuffer: 4
     });
 
     const esriSat = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
         maxZoom: 21,
         attribution: '&copy; Esri World Imagery',
-        updateWhenZooming: false,
         keepBuffer: 4
     });
 
