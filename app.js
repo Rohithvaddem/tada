@@ -36,11 +36,11 @@ let zoomRafId = null;
 let toggleLayoutCalibrator = null;
 
 const DEFAULT_CALIBRATION = {
-    south: 13.60046053102703,
-    north: 13.60365257368192,
-    west: 80.00862079947686,
-    east: 80.01232558108185,
-    rotation: 0,
+    south: 13.60048474355232,
+    north: 13.60367327671538,
+    west: 80.00845647404564,
+    east: 80.01215718242788,
+    rotation: -5.70,
     opacity: 0.85
 };
 
@@ -546,15 +546,39 @@ function focusOnPlot(plotNo) {
     if (leafletDot) leafletDot.classList.add('highlighted');
     
     if (currentViewMode === 'gis' && leafletMapInstance) {
-        const south = 13.60046053102703;
-        const north = 13.60365257368192;
-        const west = 80.00862079947686;
-        const east = 80.01232558108185;
+        const south = currentCalibration.south;
+        const north = currentCalibration.north;
+        const west = currentCalibration.west;
+        const east = currentCalibration.east;
+        const rotationDeg = currentCalibration.rotation || 0;
+        const rotationRad = (-rotationDeg * Math.PI) / 180;
+
         const zoomRef = 20;
         const nwPoint = leafletMapInstance.project(L.latLng(north, west), zoomRef);
         const sePoint = leafletMapInstance.project(L.latLng(south, east), zoomRef);
-        const plotPxX = nwPoint.x + (coords.left / 1024) * (sePoint.x - nwPoint.x);
-        const plotPxY = nwPoint.y + (coords.top / 768) * (sePoint.y - nwPoint.y);
+
+        const overlayPixelWidth = sePoint.x - nwPoint.x;
+        const overlayPixelHeight = sePoint.y - nwPoint.y;
+
+        const centerX = (nwPoint.x + sePoint.x) / 2;
+        const centerY = (nwPoint.y + sePoint.y) / 2;
+
+        const cosR = Math.cos(rotationRad);
+        const sinR = Math.sin(rotationRad);
+
+        const rawPxX = nwPoint.x + (coords.left / 1024) * overlayPixelWidth;
+        const rawPxY = nwPoint.y + (coords.top / 768) * overlayPixelHeight;
+
+        let plotPxX = rawPxX;
+        let plotPxY = rawPxY;
+
+        if (rotationDeg !== 0) {
+            const dx = rawPxX - centerX;
+            const dy = rawPxY - centerY;
+            plotPxX = centerX + dx * cosR - dy * sinR;
+            plotPxY = centerY + dx * sinR + dy * cosR;
+        }
+
         const exactLatLng = leafletMapInstance.unproject(L.point(plotPxX, plotPxY), zoomRef);
         leafletMapInstance.setView(exactLatLng, 20, { animate: true });
     } else {
