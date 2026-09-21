@@ -155,6 +155,10 @@ setTimeout(dismissLoader, 1500);
 function normalizePlotData(data) {
     if (!Array.isArray(data)) return [];
     return data.map(p => {
+        const curStatus = String(p.plot_status || '').toUpperCase().trim();
+        if (curStatus === 'ASPIREALTY' || curStatus === '' || !curStatus) {
+            return { ...p, plot_status: 'AVAILABLE' };
+        }
         return p;
     });
 }
@@ -162,7 +166,7 @@ function normalizePlotData(data) {
 function getPlotEffectiveStatus(item) {
     if (!item) return 'AVAILABLE';
     const s = String(item.plot_status || '').toUpperCase().trim();
-    if (s === 'SOLD' || s === 'HOLD' || s === 'MORTGAGE' || s === 'REGISTERED' || s === 'ASPIREALTY') {
+    if (s === 'SOLD' || s === 'HOLD' || s === 'MORTGAGE' || s === 'REGISTERED') {
         return s;
     }
     return 'AVAILABLE';
@@ -249,7 +253,7 @@ function renderPlotDots() {
     Object.keys(plotCoordinates).forEach(plotNo => {
         const coords = plotCoordinates[plotNo];
         const detail = plotData.find(p => String(p.plot_no) === String(plotNo));
-        const status = detail ? detail.plot_status : 'AVAILABLE';
+        const status = detail ? getPlotEffectiveStatus(detail) : 'AVAILABLE';
         const color = getStatusColor(status, plotNo, detail);
         
         const dot = document.createElement('button');
@@ -2090,7 +2094,7 @@ function renderLeafletPlotMarkers() {
     Object.keys(plotCoordinates).forEach(plotNo => {
         const coords = plotCoordinates[plotNo];
         const detail = plotData.find(p => String(p.plot_no) === String(plotNo));
-        const status = detail ? detail.plot_status : 'AVAILABLE';
+        const status = detail ? getPlotEffectiveStatus(detail) : 'AVAILABLE';
         const color = getStatusColor(status, plotNo, detail);
 
         // Compute unrotated Mercator pixel position on overlay
