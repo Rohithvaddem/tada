@@ -89,9 +89,6 @@
                     <button class="filter-reset-btn" id="mapViewToggleBtn" style="display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; margin-left: 10px; font-weight: 600; cursor: pointer; border-radius: 6px; background: rgba(59, 130, 246, 0.15); border: 1px solid #3b82f6; color: #60a5fa;">
                         <i class="fa-solid fa-map"></i> <span>2D Plan View</span>
                     </button>
-                    <button class="filter-reset-btn" id="openCalibratorBtn" style="display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; margin-left: 8px; font-weight: 600; cursor: pointer; border-radius: 6px; background: rgba(245, 158, 11, 0.18); border: 1px solid #f59e0b; color: #fbbf24;" title="Calibrate Layout Position, Scale & Rotation">
-                        <i class="fa-solid fa-crosshairs"></i> <span>Calibrate Layout</span>
-                    </button>
                 </div>
                 <div class="header-stats">
                     <div class="stat-header-item">
@@ -151,12 +148,7 @@
                 <!-- Interactive Leaflet GIS Satellite Map Container -->
                 <div id="leafletMap" style="width: 100%; height: 100%; position: absolute; top: 0; left: 0; z-index: 1; display: block;"></div>
 
-                <!-- Floating Calibrator Quick-Toggle Button -->
-                <button class="floating-calibrator-toggle" id="floatingCalibratorToggle" title="Calibrate KMZ Layout Position & Rotation">
-                    <i class="fa-solid fa-crosshairs"></i>
-                </button>
-
-                <!-- Layout Calibration HUD Panel -->
+                <!-- Layout Calibration HUD Panel (Accessed via Admin Login) -->
                 <div class="calibrator-card" id="calibratorCard" style="display: none;">
                     <div class="calibrator-header" id="calibratorHeader">
                         <div class="calibrator-title">

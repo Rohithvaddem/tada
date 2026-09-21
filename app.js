@@ -33,6 +33,7 @@ let layoutOverlayInstance = null;
 let leafletMarkersLayer = null;
 let currentViewMode = 'gis'; // Default to Google Satellite Map
 let zoomRafId = null;
+let toggleLayoutCalibrator = null;
 
 const DEFAULT_CALIBRATION = {
     south: 13.60046053102703,
@@ -1576,6 +1577,9 @@ function setupAdminState() {
         sidebarFooter.innerHTML = `
             <div style="display: flex; flex-direction: column; gap: 8px; width: 100%; padding: 0 4px;">
                 ${roleBadgeHtml}
+                <button class="admin-login-btn" id="adminCalibrateBtn" style="background: linear-gradient(135deg, #d97706, #b45309); color: #fff; border: 1px solid #f59e0b; font-weight: 700; cursor: pointer; padding: 10px; border-radius: 8px; display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; font-size: 13px; box-shadow: 0 2px 8px rgba(217, 119, 6, 0.35);">
+                    <i class="fa-solid fa-crosshairs"></i> Calibrate KMZ Layout
+                </button>
                 <button class="admin-login-btn" id="exportDbBtn" style="background-color: var(--accent); color: #fff; border: none; font-weight: 700; cursor: pointer; padding: 10px; border-radius: 8px; display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; font-size: 13px;">
                     <i class="fa-solid fa-download"></i> Export data.json
                 </button>
@@ -1587,6 +1591,15 @@ function setupAdminState() {
                 </button>
             </div>
         `;
+
+        const calibBtn = document.getElementById('adminCalibrateBtn');
+        if (calibBtn) {
+            calibBtn.addEventListener('click', () => {
+                if (typeof toggleLayoutCalibrator === 'function') {
+                    toggleLayoutCalibrator();
+                }
+            });
+        }
 
         document.getElementById('exportDbBtn').addEventListener('click', () => {
             const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(plotData, null, 4));
@@ -1612,6 +1625,8 @@ function setupAdminState() {
             isStaffLoggedIn = false;
             sessionStorage.removeItem('userRole');
             sessionStorage.removeItem('isAdminLoggedIn');
+            const card = document.getElementById('calibratorCard');
+            if (card) card.style.display = 'none';
             alert('Logged out successfully.');
             window.location.reload();
         });
@@ -1621,11 +1636,23 @@ function setupAdminState() {
             banner = document.createElement('div');
             banner.id = 'adminBanner';
             banner.style.cssText = 'background: linear-gradient(90deg, #b45309, #d97706); color: #fff; text-align: center; padding: 8px; font-size: 12px; font-weight: 700; display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; z-index: 1000; position: relative;';
-            banner.innerHTML = `<i class="fa-solid fa-user-shield"></i> ADMINISTRATOR MODE ACTIVE &bull; Click any plot card to edit details, or use the Coordinate Mapper`;
+            banner.innerHTML = `<i class="fa-solid fa-user-shield"></i> ADMINISTRATOR MODE ACTIVE &bull; Click any plot card to edit details, or <button id="bannerCalibrateBtn" style="background: rgba(0,0,0,0.35); border: 1px solid rgba(255,255,255,0.4); color: #fff; padding: 3px 10px; border-radius: 6px; font-weight: 700; cursor: pointer; margin-left: 6px; font-size: 11px;"><i class="fa-solid fa-crosshairs"></i> Calibrate Layout</button>`;
             document.body.insertBefore(banner, document.body.firstChild);
+
+            const bCalibBtn = document.getElementById('bannerCalibrateBtn');
+            if (bCalibBtn) {
+                bCalibBtn.addEventListener('click', () => {
+                    if (typeof toggleLayoutCalibrator === 'function') {
+                        toggleLayoutCalibrator(true);
+                    }
+                });
+            }
         }
     } else {
         if (mapperSection) mapperSection.style.display = 'none';
+
+        const card = document.getElementById('calibratorCard');
+        if (card) card.style.display = 'none';
 
         sidebarFooter.innerHTML = `
             <button class="admin-login-btn" id="staffLoginBtn" style="border: none; cursor: pointer; width: 100%; display: flex; align-items: center; justify-content: center; gap: 8px;">
@@ -2146,8 +2173,6 @@ function showToast(message) {
 
 function setupLayoutCalibrator() {
     const card = document.getElementById('calibratorCard');
-    const openBtn = document.getElementById('openCalibratorBtn');
-    const floatingToggle = document.getElementById('floatingCalibratorToggle');
     const closeBtn = document.getElementById('calibratorCloseBtn');
     const minBtn = document.getElementById('calibratorMinimizeBtn');
     const header = document.getElementById('calibratorHeader');
@@ -2157,17 +2182,15 @@ function setupLayoutCalibrator() {
     let activeStepMeters = 0.5;
 
     // Toggle card visibility
-    const toggleCard = (e) => {
-        if (e) e.stopPropagation();
+    toggleLayoutCalibrator = (forceState) => {
         const isHidden = card.style.display === 'none' || !card.style.display;
-        card.style.display = isHidden ? 'flex' : 'none';
-        if (isHidden) {
+        const targetState = typeof forceState === 'boolean' ? forceState : isHidden;
+        card.style.display = targetState ? 'flex' : 'none';
+        if (targetState) {
             updateCalibratorUI();
         }
     };
 
-    if (openBtn) openBtn.addEventListener('click', toggleCard);
-    if (floatingToggle) floatingToggle.addEventListener('click', toggleCard);
     if (closeBtn) closeBtn.addEventListener('click', () => { card.style.display = 'none'; });
 
     if (minBtn) {
