@@ -155,13 +155,6 @@ setTimeout(dismissLoader, 1500);
 function normalizePlotData(data) {
     if (!Array.isArray(data)) return [];
     return data.map(p => {
-        const pNum = parseInt(p.plot_no, 10);
-        const isAspirealty = (pNum >= 1 && pNum <= 79 && ![18, 23, 24, 25, 39].includes(pNum)) ||
-                            (String(p.reference_name || '').toUpperCase().trim() === 'ASPIREALTY');
-        const curStatus = String(p.plot_status || '').toUpperCase().trim();
-        if (isAspirealty && (curStatus === '' || curStatus === 'AVAILABLE')) {
-            return { ...p, plot_status: 'ASPIREALTY' };
-        }
         return p;
     });
 }
@@ -171,12 +164,6 @@ function getPlotEffectiveStatus(item) {
     const s = String(item.plot_status || '').toUpperCase().trim();
     if (s === 'SOLD' || s === 'HOLD' || s === 'MORTGAGE' || s === 'REGISTERED' || s === 'ASPIREALTY') {
         return s;
-    }
-    const pNum = parseInt(item.plot_no, 10);
-    const isAspirealty = (pNum >= 1 && pNum <= 79 && ![18, 23, 24, 25, 39].includes(pNum)) ||
-                        (String(item.reference_name || '').toUpperCase().trim() === 'ASPIREALTY');
-    if (isAspirealty) {
-        return 'ASPIREALTY';
     }
     return 'AVAILABLE';
 }
@@ -237,25 +224,15 @@ function initApp() {
 
 function getStatusColor(status, plotNo, detail) {
     const s = String(status || '').toUpperCase().trim();
-    const pNum = parseInt(plotNo, 10);
     
-    // Explicit statuses take priority
-    if (s === 'AVAILABLE') {
-        // Rule: Plots 1-79 except 18, 23, 24, 25, 39 are light blue (Aspirealty share plots)
-        const isAspirealty = (pNum >= 1 && pNum <= 79 && ![18, 23, 24, 25, 39].includes(pNum)) ||
-                            (detail && String(detail.reference_name || '').toUpperCase().trim() === 'ASPIREALTY');
-        if (isAspirealty) return '#38bdf8'; // Light Blue
+    // Explicit statuses take priority - Available and Aspirealty plots are Green
+    if (s === 'AVAILABLE' || s === 'ASPIREALTY') {
         return '#10b981'; // Green
     }
     if (s === 'SOLD' || s === 'BOOKED') return '#1d4ed8'; // Dark Blue
     if (s === 'HOLD') return '#8b5cf6'; // Violet
     if (s === 'MORTGAGE') return '#f97316'; // Orange
     if (s === 'REGISTERED') return '#ef4444'; // Red
-    if (s === 'ASPIREALTY') return '#38bdf8'; // Light Blue
-
-    const isAspirealty = (pNum >= 1 && pNum <= 79 && ![18, 23, 24, 25, 39].includes(pNum)) ||
-                        (detail && String(detail.reference_name || '').toUpperCase().trim() === 'ASPIREALTY');
-    if (isAspirealty) return '#38bdf8'; // Light Blue
 
     // Legacy statuses for backward compatibility
     if (s === 'EVERYONES' || s === "EVERYONE'S" || s === 'EVERYONE') return '#8b5cf6'; // Violet
@@ -640,6 +617,9 @@ function applyFilters() {
         const pNum = parseInt(plotNo, 10);
         
         let normalizedStatus = 'AVAILABLE';
+        const isAspirealty = (pNum >= 1 && pNum <= 79 && ![18, 23, 24, 25, 39].includes(pNum)) ||
+                            (String(dot.dataset.reference || '').toUpperCase().trim() === 'ASPIREALTY');
+
         if (rawStatus === 'SOLD' || rawStatus === 'BOOKED' || rawStatus === 'SOUMITH') {
             normalizedStatus = 'SOLD';
         } else if (rawStatus === 'HOLD' || rawStatus === 'EVERYONES' || rawStatus === "EVERYONE'S" || rawStatus === 'EVERYONE') {
@@ -651,19 +631,14 @@ function applyFilters() {
         } else if (rawStatus === 'ASPIREALTY') {
             normalizedStatus = 'ASPIREALTY';
         } else {
-            const isAspirealty = (pNum >= 1 && pNum <= 79 && ![18, 23, 24, 25, 39].includes(pNum));
-            if (isAspirealty) {
-                normalizedStatus = 'ASPIREALTY';
-            } else {
-                normalizedStatus = 'AVAILABLE';
-            }
+            normalizedStatus = 'AVAILABLE';
         }
         
         let show = true;
         
         // Apply Facing constraint (If ANY facing filter is active, available plots should NOT appear)
         if (activeFacingFilters.size > 0) {
-            const isAvailable = (normalizedStatus === 'AVAILABLE' || rawStatus === 'AVAILABLE');
+            const isAvailable = (normalizedStatus === 'AVAILABLE' || rawStatus === 'AVAILABLE' || normalizedStatus === 'ASPIREALTY' || rawStatus === 'ASPIREALTY');
             if (isAvailable) {
                 show = false;
             } else {
@@ -695,8 +670,17 @@ function applyFilters() {
         }
         
         // Apply Status constraint
-        if (activeStatusFilters.size > 0 && !activeStatusFilters.has(normalizedStatus) && !activeStatusFilters.has(rawStatus)) {
-            show = false;
+        if (activeStatusFilters.size > 0) {
+            let matchStatus = activeStatusFilters.has(normalizedStatus) || activeStatusFilters.has(rawStatus);
+            if (activeStatusFilters.has('AVAILABLE') && (normalizedStatus === 'ASPIREALTY' || rawStatus === 'ASPIREALTY' || isAspirealty)) {
+                matchStatus = true;
+            }
+            if (activeStatusFilters.has('ASPIREALTY') && (isAspirealty || normalizedStatus === 'ASPIREALTY' || rawStatus === 'ASPIREALTY')) {
+                matchStatus = true;
+            }
+            if (!matchStatus) {
+                show = false;
+            }
         }
         
         if (show) {
@@ -1212,10 +1196,11 @@ function updateStatistics() {
             counts['MORTGAGE']++;
         } else if (s === 'REGISTERED' || s === 'SURESH') {
             counts['REGISTERED']++;
-        } else if (s === 'ASPIREALTY' || (isAspirealty && (s === 'AVAILABLE' || !s))) {
-            counts['ASPIREALTY']++;
         } else {
             counts['AVAILABLE']++;
+            if (s === 'ASPIREALTY' || isAspirealty) {
+                counts['ASPIREALTY']++;
+            }
         }
     });
 
@@ -1239,7 +1224,7 @@ function updateStatistics() {
         { key: 'HOLD', label: 'HOLD', color: '#8b5cf6' },
         { key: 'MORTGAGE', label: 'MORTGAGE', color: '#f97316' },
         { key: 'REGISTERED', label: 'REGISTERED', color: '#ef4444' },
-        { key: 'ASPIREALTY', label: 'ASPIREALTY', color: '#38bdf8' }
+        { key: 'ASPIREALTY', label: 'ASPIREALTY', color: '#10b981' }
     ];
 
     // Render Sidebar Legend items
