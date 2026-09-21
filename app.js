@@ -2007,13 +2007,14 @@ function initLeafletMap() {
 
     const esriSat = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
         maxZoom: 21,
-        maxNativeZoom: 19,
+        maxNativeZoom: 18,
         attribution: '&copy; Esri World Imagery',
         keepBuffer: 4
     }).addTo(leafletMapInstance);
 
     const googleSat = L.tileLayer('https://{s}.google.com/vt/lyrs=y&x={x}&y={y}&z={z}', {
         maxZoom: 21,
+        maxNativeZoom: 20,
         subdomains: ['mt0', 'mt1', 'mt2', 'mt3'],
         attribution: '&copy; Google Maps',
         keepBuffer: 4
@@ -2021,6 +2022,7 @@ function initLeafletMap() {
 
     const googleRoadmap = L.tileLayer('https://{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}', {
         maxZoom: 21,
+        maxNativeZoom: 20,
         subdomains: ['mt0', 'mt1', 'mt2', 'mt3'],
         attribution: '&copy; Google Maps',
         keepBuffer: 4
