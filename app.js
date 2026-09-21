@@ -2046,7 +2046,19 @@ function initLeafletMap() {
         "Plot Dots Layer": leafletMarkersLayer
     };
 
-    L.control.layers(baseLayers, overlays).addTo(leafletMapInstance);
+    const layersControl = L.control.layers(baseLayers, overlays, {
+        position: 'topleft',
+        collapsed: true
+    }).addTo(leafletMapInstance);
+
+    // Set descriptive tooltip on the layer switcher button
+    if (layersControl && typeof layersControl.getContainer === 'function') {
+        const container = layersControl.getContainer();
+        const layerToggleEl = container ? container.querySelector('.leaflet-control-layers-toggle') : null;
+        if (layerToggleEl) {
+            layerToggleEl.setAttribute('title', 'Map Layers & Layout Overlays (Toggle Layout / Plot Buttons)');
+        }
+    }
 
     leafletMapInstance.on('zoom zoomend viewreset', updateLeafletMarkerZoomScale);
     updateLeafletMarkerZoomScale();

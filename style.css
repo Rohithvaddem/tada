@@ -1901,6 +1901,72 @@ button,
     color: #fff;
 }
 
+/* ====================================================
+   Leaflet Layers & Overlays Switcher Styling
+   ==================================================== */
+.leaflet-top.leaflet-left .leaflet-control-layers {
+    margin-top: 10px;
+    background: rgba(15, 23, 42, 0.94) !important;
+    backdrop-filter: blur(14px) !important;
+    -webkit-backdrop-filter: blur(14px) !important;
+    border: 1px solid rgba(255, 255, 255, 0.16) !important;
+    border-radius: 10px !important;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6), 0 0 15px rgba(59, 130, 246, 0.12) !important;
+    color: #f8fafc !important;
+    font-family: var(--font-main) !important;
+    font-size: 12.5px !important;
+    font-weight: 600 !important;
+    transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1) !important;
+    z-index: 900 !important;
+}
+
+.leaflet-control-layers-toggle {
+    filter: invert(1) brightness(1.8) !important;
+    width: 36px !important;
+    height: 36px !important;
+    background-size: 20px 20px !important;
+    border-radius: 10px !important;
+}
+
+.leaflet-control-layers-expanded {
+    padding: 14px 16px !important;
+    min-width: 220px !important;
+    color: #f8fafc !important;
+    border-radius: 12px !important;
+}
+
+.leaflet-control-layers-separator {
+    border-top: 1px solid rgba(255, 255, 255, 0.12) !important;
+    margin: 10px 0 !important;
+}
+
+.leaflet-control-layers-base label,
+.leaflet-control-layers-overlays label {
+    display: flex !important;
+    align-items: center !important;
+    gap: 10px !important;
+    padding: 5px 0 !important;
+    cursor: pointer !important;
+    color: #cbd5e1 !important;
+    font-size: 12.5px !important;
+    transition: color 0.15s ease, transform 0.15s ease !important;
+}
+
+.leaflet-control-layers-base label:hover,
+.leaflet-control-layers-overlays label:hover {
+    color: #38bdf8 !important;
+    transform: translateX(2px) !important;
+}
+
+.leaflet-control-layers input[type="radio"],
+.leaflet-control-layers input[type="checkbox"] {
+    accent-color: #3b82f6 !important;
+    cursor: pointer !important;
+    width: 15px !important;
+    height: 15px !important;
+    margin: 0 !important;
+}
+
 
 
 
