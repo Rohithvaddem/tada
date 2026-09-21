@@ -228,8 +228,18 @@ function initApp() {
 
 function getStatusColor(status, plotNo, detail) {
     const s = String(status || '').toUpperCase().trim();
+    const pNum = parseInt(plotNo, 10);
+
+    // Rule: Plot numbers 81 to 131 have brown colour while keeping status AVAILABLE
+    if (pNum >= 81 && pNum <= 131) {
+        if (s === 'SOLD' || s === 'BOOKED') return '#1d4ed8'; // Dark Blue
+        if (s === 'HOLD') return '#8b5cf6'; // Violet
+        if (s === 'MORTGAGE') return '#f97316'; // Orange
+        if (s === 'REGISTERED') return '#ef4444'; // Red
+        return '#8b4513'; // Brown for plots 81-131
+    }
     
-    // Explicit statuses take priority - Available and Aspirealty plots are Green
+    // Explicit statuses take priority - Available is Green
     if (s === 'AVAILABLE' || s === 'ASPIREALTY') {
         return '#10b981'; // Green
     }
