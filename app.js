@@ -1999,23 +1999,24 @@ function initLeafletMap() {
         inertiaDeceleration: 3000
     });
 
-    const googleSat = L.tileLayer('https://{s}.google.com/vt/lyrs=y&x={x}&y={y}&z={z}', {
+    const esriSat = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
         maxZoom: 21,
-        subdomains: ['mt0', 'mt1', 'mt2', 'mt3'],
-        attribution: '&copy; Google Maps',
+        maxNativeZoom: 19,
+        attribution: '&copy; Esri World Imagery',
         keepBuffer: 4
     }).addTo(leafletMapInstance);
 
-    const googleRoadmap = L.tileLayer('https://{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}', {
+    const googleSat = L.tileLayer('https://{s}.google.com/vt/lyrs=y&x={x}&y={y}&z={z}', {
         maxZoom: 21,
         subdomains: ['mt0', 'mt1', 'mt2', 'mt3'],
         attribution: '&copy; Google Maps',
         keepBuffer: 4
     });
 
-    const esriSat = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+    const googleRoadmap = L.tileLayer('https://{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}', {
         maxZoom: 21,
-        attribution: '&copy; Esri World Imagery',
+        subdomains: ['mt0', 'mt1', 'mt2', 'mt3'],
+        attribution: '&copy; Google Maps',
         keepBuffer: 4
     });
 
@@ -2036,9 +2037,9 @@ function initLeafletMap() {
     leafletMarkersLayer = L.layerGroup().addTo(leafletMapInstance);
 
     const baseLayers = {
+        "Esri Satellite": esriSat,
         "Google Satellite Hybrid": googleSat,
-        "Google Maps Standard": googleRoadmap,
-        "Esri Satellite": esriSat
+        "Google Maps Standard": googleRoadmap
     };
 
     const overlays = {
