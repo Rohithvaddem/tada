@@ -89,6 +89,9 @@
                     <button class="filter-reset-btn" id="mapViewToggleBtn" style="display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; margin-left: 10px; font-weight: 600; cursor: pointer; border-radius: 6px; background: rgba(59, 130, 246, 0.15); border: 1px solid #3b82f6; color: #60a5fa;">
                         <i class="fa-solid fa-map"></i> <span>2D Plan View</span>
                     </button>
+                    <button class="filter-reset-btn" id="openCalibratorBtn" style="display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; margin-left: 8px; font-weight: 600; cursor: pointer; border-radius: 6px; background: rgba(245, 158, 11, 0.18); border: 1px solid #f59e0b; color: #fbbf24;" title="Calibrate Layout Position, Scale & Rotation">
+                        <i class="fa-solid fa-crosshairs"></i> <span>Calibrate Layout</span>
+                    </button>
                 </div>
                 <div class="header-stats">
                     <div class="stat-header-item">
@@ -147,6 +150,128 @@
 
                 <!-- Interactive Leaflet GIS Satellite Map Container -->
                 <div id="leafletMap" style="width: 100%; height: 100%; position: absolute; top: 0; left: 0; z-index: 1; display: block;"></div>
+
+                <!-- Floating Calibrator Quick-Toggle Button -->
+                <button class="floating-calibrator-toggle" id="floatingCalibratorToggle" title="Calibrate KMZ Layout Position & Rotation">
+                    <i class="fa-solid fa-crosshairs"></i>
+                </button>
+
+                <!-- Layout Calibration HUD Panel -->
+                <div class="calibrator-card" id="calibratorCard" style="display: none;">
+                    <div class="calibrator-header" id="calibratorHeader">
+                        <div class="calibrator-title">
+                            <i class="fa-solid fa-crosshairs" style="color: #f59e0b;"></i>
+                            <span>KMZ Layout Calibrator</span>
+                        </div>
+                        <div class="calibrator-header-actions">
+                            <button class="calibrator-icon-btn" id="calibratorMinimizeBtn" title="Minimize / Expand"><i class="fa-solid fa-minus"></i></button>
+                            <button class="calibrator-icon-btn" id="calibratorCloseBtn" title="Close"><i class="fa-solid fa-xmark"></i></button>
+                        </div>
+                    </div>
+                    <div class="calibrator-body" id="calibratorBody">
+                        <!-- Step Selector -->
+                        <div class="calib-row">
+                            <label class="calib-label">Nudge Step:</label>
+                            <div class="calib-step-pills">
+                                <button class="calib-step-btn active" data-step="0.5">0.5m</button>
+                                <button class="calib-step-btn" data-step="2">2m</button>
+                                <button class="calib-step-btn" data-step="10">10m</button>
+                                <button class="calib-step-btn" data-step="25">25m</button>
+                            </div>
+                        </div>
+
+                        <!-- Position Nudge (D-Pad) -->
+                        <div class="calib-section">
+                            <div class="calib-section-title"><i class="fa-solid fa-arrows-up-down-left-right"></i> Move Layout Position</div>
+                            <div class="calib-dpad">
+                                <button class="calib-dpad-btn calib-up" id="calibNudgeNorth" title="Move North">▲ N</button>
+                                <div class="calib-dpad-mid">
+                                    <button class="calib-dpad-btn calib-left" id="calibNudgeWest" title="Move West">◀ W</button>
+                                    <button class="calib-dpad-btn calib-center" id="calibCenterView" title="Center Map on Layout"><i class="fa-solid fa-location-crosshairs"></i></button>
+                                    <button class="calib-dpad-btn calib-right" id="calibNudgeEast" title="Move East">E ▶</button>
+                                </div>
+                                <button class="calib-dpad-btn calib-down" id="calibNudgeSouth" title="Move South">▼ S</button>
+                            </div>
+                        </div>
+
+                        <!-- Rotation -->
+                        <div class="calib-section">
+                            <div class="calib-section-title">
+                                <span><i class="fa-solid fa-rotate"></i> Rotation</span>
+                                <span class="calib-val-badge" id="calibRotationBadge">0.00°</span>
+                            </div>
+                            <div class="calib-stepper-row">
+                                <button class="calib-stepper-btn" data-rot="-5">-5°</button>
+                                <button class="calib-stepper-btn" data-rot="-1">-1°</button>
+                                <button class="calib-stepper-btn" data-rot="-0.1">-0.1°</button>
+                                <button class="calib-stepper-btn calib-zero-btn" id="calibRotZero" title="Reset angle to 0°">0°</button>
+                                <button class="calib-stepper-btn" data-rot="0.1">+0.1°</button>
+                                <button class="calib-stepper-btn" data-rot="1">+1°</button>
+                                <button class="calib-stepper-btn" data-rot="5">+5°</button>
+                            </div>
+                            <input type="range" class="calib-slider" id="calibRotationSlider" min="-180" max="180" step="0.05" value="0">
+                        </div>
+
+                        <!-- Scale / Stretch -->
+                        <div class="calib-section">
+                            <div class="calib-section-title"><i class="fa-solid fa-expand"></i> Stretch / Scale Dimensions</div>
+                            <div class="calib-scale-grid">
+                                <div class="calib-scale-col">
+                                    <span class="calib-sublabel">Width (E-W)</span>
+                                    <div class="calib-btn-group">
+                                        <button class="calib-small-btn" id="calibWidthDec">-1%</button>
+                                        <button class="calib-small-btn" id="calibWidthInc">+1%</button>
+                                    </div>
+                                </div>
+                                <div class="calib-scale-col">
+                                    <span class="calib-sublabel">Height (N-S)</span>
+                                    <div class="calib-btn-group">
+                                        <button class="calib-small-btn" id="calibHeightDec">-1%</button>
+                                        <button class="calib-small-btn" id="calibHeightInc">+1%</button>
+                                    </div>
+                                </div>
+                                <div class="calib-scale-col">
+                                    <span class="calib-sublabel">Both (Uniform)</span>
+                                    <div class="calib-btn-group">
+                                        <button class="calib-small-btn" id="calibUniformDec">-1%</button>
+                                        <button class="calib-small-btn" id="calibUniformInc">+1%</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Opacity -->
+                        <div class="calib-section">
+                            <div class="calib-section-title">
+                                <span><i class="fa-solid fa-circle-half-stroke"></i> Layout Overlay Opacity</span>
+                                <span class="calib-val-badge" id="calibOpacityBadge">85%</span>
+                            </div>
+                            <input type="range" class="calib-slider" id="calibOpacitySlider" min="10" max="100" step="5" value="85">
+                        </div>
+
+                        <!-- Live Coordinates Readout -->
+                        <div class="calib-coords-box" id="calibCoordsBox">
+                            <div class="calib-coord-line"><span>North:</span> <strong id="calibReadoutNorth">13.60365257</strong></div>
+                            <div class="calib-coord-line"><span>South:</span> <strong id="calibReadoutSouth">13.60046053</strong></div>
+                            <div class="calib-coord-line"><span>East:</span> <strong id="calibReadoutEast">80.01232558</strong></div>
+                            <div class="calib-coord-line"><span>West:</span> <strong id="calibReadoutWest">80.00862080</strong></div>
+                            <div class="calib-coord-line"><span>Rotation:</span> <strong id="calibReadoutRot">0.00°</strong></div>
+                        </div>
+
+                        <!-- Actions -->
+                        <div class="calib-actions">
+                            <button class="calib-action-btn calib-save-btn" id="calibSaveBtn" title="Save calibration into your browser storage">
+                                <i class="fa-solid fa-floppy-disk"></i> Save & Persist
+                            </button>
+                            <button class="calib-action-btn calib-copy-btn" id="calibCopyBtn" title="Copy exact coordinates to clipboard">
+                                <i class="fa-solid fa-copy"></i> Copy Config
+                            </button>
+                            <button class="calib-action-btn calib-reset-btn" id="calibResetBtn" title="Reset to original KMZ defaults">
+                                <i class="fa-solid fa-rotate-left"></i> Reset
+                            </button>
+                        </div>
+                    </div>
+                </div>
 
 
                 <!-- Modal Backdrop -->

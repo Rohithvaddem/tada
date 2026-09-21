@@ -27,12 +27,36 @@ let isAdminLoggedIn = !!userRole;
 let isDirectorLoggedIn = userRole === 'director';
 let isStaffLoggedIn = userRole === 'staff';
 
-// GIS Satellite Map View State
+// GIS Satellite Map View State & Calibration
 let leafletMapInstance = null;
 let layoutOverlayInstance = null;
 let leafletMarkersLayer = null;
 let currentViewMode = 'gis'; // Default to Google Satellite Map
 let zoomRafId = null;
+
+const DEFAULT_CALIBRATION = {
+    south: 13.60046053102703,
+    north: 13.60365257368192,
+    west: 80.00862079947686,
+    east: 80.01232558108185,
+    rotation: 0,
+    opacity: 0.85
+};
+
+let currentCalibration = Object.assign({}, DEFAULT_CALIBRATION);
+
+// Load persisted calibration from browser localStorage
+try {
+    const saved = typeof localStorage !== 'undefined' && localStorage.getItem('tada_kmz_calibration');
+    if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed && typeof parsed.north === 'number' && typeof parsed.south === 'number') {
+            currentCalibration = Object.assign({}, DEFAULT_CALIBRATION, parsed);
+        }
+    }
+} catch (e) {
+    console.warn('Could not read saved calibration', e);
+}
 
 // DOM Cache
 const mapViewport = document.getElementById('mapViewport');
@@ -111,6 +135,7 @@ function startTadaApp() {
     setupAdmin();
     setupMapViewToggle();
     initLeafletMap();
+    setupLayoutCalibrator();
 
     // Dismiss loader promptly once app has initialized
     setTimeout(dismissLoader, 400);
@@ -1810,6 +1835,55 @@ function setupMapViewToggle() {
     });
 }
 
+// ----------------------------------------------------
+// KMZ Layout GIS Overlay & Interactive Calibrator
+// ----------------------------------------------------
+// Leaflet Rotated Image Overlay Extension
+function ensureRotatedOverlayExtension() {
+    if (typeof L === 'undefined' || !L.ImageOverlay || L.ImageOverlay.Rotated) return;
+
+    L.ImageOverlay.Rotated = L.ImageOverlay.extend({
+        options: {
+            rotation: 0
+        },
+        setRotation: function (deg) {
+            this.options.rotation = deg;
+            this._reset();
+            return this;
+        },
+        _reset: function () {
+            L.ImageOverlay.prototype._reset.call(this);
+            if (this._image) {
+                this._image.style.transformOrigin = '50% 50%';
+                let currentTransform = this._image.style.transform || '';
+                currentTransform = currentTransform.replace(/\s*rotate\([^\)]*\)/g, '').trim();
+                if (this.options.rotation) {
+                    this._image.style.transform = currentTransform + ' rotate(' + (-this.options.rotation) + 'deg)';
+                } else {
+                    this._image.style.transform = currentTransform;
+                }
+            }
+        },
+        _animateZoom: function (e) {
+            L.ImageOverlay.prototype._animateZoom.call(this, e);
+            if (this._image) {
+                this._image.style.transformOrigin = '50% 50%';
+                let currentTransform = this._image.style.transform || '';
+                currentTransform = currentTransform.replace(/\s*rotate\([^\)]*\)/g, '').trim();
+                if (this.options.rotation) {
+                    this._image.style.transform = currentTransform + ' rotate(' + (-this.options.rotation) + 'deg)';
+                } else {
+                    this._image.style.transform = currentTransform;
+                }
+            }
+        }
+    });
+
+    L.imageOverlay.rotated = function (url, bounds, options) {
+        return new L.ImageOverlay.Rotated(url, bounds, options);
+    };
+}
+
 function initLeafletMap() {
     const leafletMapDiv = document.getElementById('leafletMap');
     const mapContainer = document.getElementById('mapContainer');
@@ -1824,11 +1898,12 @@ function initLeafletMap() {
         return;
     }
 
-    // KMZ doc.kml Lat/Lon Bounds
-    const south = 13.60046053102703;
-    const north = 13.60365257368192;
-    const west = 80.00862079947686;
-    const east = 80.01232558108185;
+    ensureRotatedOverlayExtension();
+
+    const south = currentCalibration.south;
+    const north = currentCalibration.north;
+    const west = currentCalibration.west;
+    const east = currentCalibration.east;
 
     const bounds = [[south, west], [north, east]];
     const center = [(south + north) / 2, (west + east) / 2];
@@ -1873,12 +1948,19 @@ function initLeafletMap() {
         keepBuffer: 4
     });
 
-    // Add layout overlay from extracted KMZ GroundOverlay (optimized WebP with RGBA transparency)
-    layoutOverlayInstance = L.imageOverlay('map_layout.webp?v=1.0.6', bounds, {
-        opacity: 0.85,
-        interactive: true,
-        errorOverlayUrl: 'map_layout.png?v=1.0.6'
-    }).addTo(leafletMapInstance);
+    // Add layout overlay with rotation and live calibration support
+    layoutOverlayInstance = L.imageOverlay.rotated ?
+        L.imageOverlay.rotated('map_layout.webp?v=1.0.6', bounds, {
+            opacity: currentCalibration.opacity,
+            rotation: currentCalibration.rotation,
+            interactive: true,
+            errorOverlayUrl: 'map_layout.png?v=1.0.6'
+        }).addTo(leafletMapInstance) :
+        L.imageOverlay('map_layout.webp?v=1.0.6', bounds, {
+            opacity: currentCalibration.opacity,
+            interactive: true,
+            errorOverlayUrl: 'map_layout.png?v=1.0.6'
+        }).addTo(leafletMapInstance);
 
     leafletMarkersLayer = L.layerGroup().addTo(leafletMapInstance);
 
@@ -1923,10 +2005,12 @@ function renderLeafletPlotMarkers() {
     }
     leafletMarkersLayer.clearLayers();
 
-    const south = 13.60046053102703;
-    const north = 13.60365257368192;
-    const west = 80.00862079947686;
-    const east = 80.01232558108185;
+    const south = currentCalibration.south;
+    const north = currentCalibration.north;
+    const west = currentCalibration.west;
+    const east = currentCalibration.east;
+    const rotationDeg = currentCalibration.rotation || 0;
+    const rotationRad = (-rotationDeg * Math.PI) / 180;
 
     // Projected Web Mercator pixel bounds at zoom level 20 for perfect non-linear projection
     const zoomRef = 20;
@@ -1935,6 +2019,12 @@ function renderLeafletPlotMarkers() {
 
     const overlayPixelWidth = sePoint.x - nwPoint.x;
     const overlayPixelHeight = sePoint.y - nwPoint.y;
+
+    const centerX = (nwPoint.x + sePoint.x) / 2;
+    const centerY = (nwPoint.y + sePoint.y) / 2;
+
+    const cosR = Math.cos(rotationRad);
+    const sinR = Math.sin(rotationRad);
 
     const imgW = 1024;
     const imgH = 768;
@@ -1945,9 +2035,20 @@ function renderLeafletPlotMarkers() {
         const status = detail ? detail.plot_status : 'AVAILABLE';
         const color = getStatusColor(status, plotNo, detail);
 
-        // Compute exact Mercator pixel position on overlay
-        const plotPxX = nwPoint.x + (coords.left / imgW) * overlayPixelWidth;
-        const plotPxY = nwPoint.y + (coords.top / imgH) * overlayPixelHeight;
+        // Compute unrotated Mercator pixel position on overlay
+        const rawPxX = nwPoint.x + (coords.left / imgW) * overlayPixelWidth;
+        const rawPxY = nwPoint.y + (coords.top / imgH) * overlayPixelHeight;
+
+        // Apply rotation around center (50% 50%) matching the overlay image transform
+        let plotPxX = rawPxX;
+        let plotPxY = rawPxY;
+
+        if (rotationDeg !== 0) {
+            const dx = rawPxX - centerX;
+            const dy = rawPxY - centerY;
+            plotPxX = centerX + dx * cosR - dy * sinR;
+            plotPxY = centerY + dx * sinR + dy * cosR;
+        }
 
         // Unproject to exact Web Mercator LatLng
         const exactLatLng = leafletMapInstance.unproject(L.point(plotPxX, plotPxY), zoomRef);
@@ -1970,3 +2071,323 @@ function renderLeafletPlotMarkers() {
 
     applyFilters();
 }
+
+function applyCalibration(newCal, saveToStorage = false) {
+    currentCalibration = Object.assign({}, currentCalibration, newCal);
+
+    const south = currentCalibration.south;
+    const north = currentCalibration.north;
+    const west = currentCalibration.west;
+    const east = currentCalibration.east;
+    const bounds = [[south, west], [north, east]];
+
+    if (layoutOverlayInstance) {
+        if (layoutOverlayInstance.setBounds) {
+            layoutOverlayInstance.setBounds(bounds);
+        }
+        if (layoutOverlayInstance.setRotation) {
+            layoutOverlayInstance.setRotation(currentCalibration.rotation);
+        }
+        if (layoutOverlayInstance.setOpacity) {
+            layoutOverlayInstance.setOpacity(currentCalibration.opacity);
+        }
+    }
+
+    renderLeafletPlotMarkers();
+    updateCalibratorUI();
+
+    if (saveToStorage) {
+        try {
+            localStorage.setItem('tada_kmz_calibration', JSON.stringify(currentCalibration));
+            showToast('Calibration saved! New position will persist across reloads.');
+        } catch (e) {
+            console.warn('Failed to save calibration to localStorage', e);
+        }
+    }
+}
+
+function updateCalibratorUI() {
+    const northEl = document.getElementById('calibReadoutNorth');
+    const southEl = document.getElementById('calibReadoutSouth');
+    const eastEl = document.getElementById('calibReadoutEast');
+    const westEl = document.getElementById('calibReadoutWest');
+    const rotEl = document.getElementById('calibReadoutRot');
+    const rotBadge = document.getElementById('calibRotationBadge');
+    const rotSlider = document.getElementById('calibRotationSlider');
+    const opBadge = document.getElementById('calibOpacityBadge');
+    const opSlider = document.getElementById('calibOpacitySlider');
+
+    if (northEl) northEl.textContent = currentCalibration.north.toFixed(8);
+    if (southEl) southEl.textContent = currentCalibration.south.toFixed(8);
+    if (eastEl) eastEl.textContent = currentCalibration.east.toFixed(8);
+    if (westEl) westEl.textContent = currentCalibration.west.toFixed(8);
+    if (rotEl) rotEl.textContent = currentCalibration.rotation.toFixed(2) + '°';
+    if (rotBadge) rotBadge.textContent = currentCalibration.rotation.toFixed(2) + '°';
+    if (rotSlider) rotSlider.value = currentCalibration.rotation;
+    if (opBadge) opBadge.textContent = Math.round(currentCalibration.opacity * 100) + '%';
+    if (opSlider) opSlider.value = Math.round(currentCalibration.opacity * 100);
+}
+
+function showToast(message) {
+    let toast = document.getElementById('appToastNotice');
+    if (!toast) {
+        toast = document.createElement('div');
+        toast.id = 'appToastNotice';
+        toast.style.cssText = 'position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%); background: rgba(15, 23, 42, 0.95); border: 1px solid #f59e0b; color: #f8fafc; padding: 10px 20px; border-radius: 30px; font-weight: 600; font-size: 13px; z-index: 2000; box-shadow: 0 8px 30px rgba(0,0,0,0.6); pointer-events: none; transition: opacity 0.3s ease; opacity: 0;';
+        document.body.appendChild(toast);
+    }
+    toast.textContent = message;
+    toast.style.opacity = '1';
+    clearTimeout(toast._timer);
+    toast._timer = setTimeout(() => {
+        toast.style.opacity = '0';
+    }, 3000);
+}
+
+function setupLayoutCalibrator() {
+    const card = document.getElementById('calibratorCard');
+    const openBtn = document.getElementById('openCalibratorBtn');
+    const floatingToggle = document.getElementById('floatingCalibratorToggle');
+    const closeBtn = document.getElementById('calibratorCloseBtn');
+    const minBtn = document.getElementById('calibratorMinimizeBtn');
+    const header = document.getElementById('calibratorHeader');
+
+    if (!card) return;
+
+    let activeStepMeters = 0.5;
+
+    // Toggle card visibility
+    const toggleCard = (e) => {
+        if (e) e.stopPropagation();
+        const isHidden = card.style.display === 'none' || !card.style.display;
+        card.style.display = isHidden ? 'flex' : 'none';
+        if (isHidden) {
+            updateCalibratorUI();
+        }
+    };
+
+    if (openBtn) openBtn.addEventListener('click', toggleCard);
+    if (floatingToggle) floatingToggle.addEventListener('click', toggleCard);
+    if (closeBtn) closeBtn.addEventListener('click', () => { card.style.display = 'none'; });
+
+    if (minBtn) {
+        minBtn.addEventListener('click', () => {
+            card.classList.toggle('minimized');
+            minBtn.innerHTML = card.classList.contains('minimized') ?
+                '<i class="fa-solid fa-plus"></i>' :
+                '<i class="fa-solid fa-minus"></i>';
+        });
+    }
+
+    // Draggable header
+    if (header) {
+        let isDragging = false;
+        let startX, startY, origLeft, origTop;
+
+        const onPointerDown = (e) => {
+            if (e.target.closest('button')) return;
+            isDragging = true;
+            const clientX = e.clientX || (e.touches && e.touches[0].clientX);
+            const clientY = e.clientY || (e.touches && e.touches[0].clientY);
+            startX = clientX;
+            startY = clientY;
+            const rect = card.getBoundingClientRect();
+            origLeft = rect.left;
+            origTop = rect.top;
+            card.style.right = 'auto';
+            card.style.left = origLeft + 'px';
+            card.style.top = origTop + 'px';
+            document.addEventListener('pointermove', onPointerMove);
+            document.addEventListener('pointerup', onPointerUp);
+        };
+
+        const onPointerMove = (e) => {
+            if (!isDragging) return;
+            const clientX = e.clientX || (e.touches && e.touches[0].clientX);
+            const clientY = e.clientY || (e.touches && e.touches[0].clientY);
+            const dx = clientX - startX;
+            const dy = clientY - startY;
+            card.style.left = Math.max(10, Math.min(window.innerWidth - 350, origLeft + dx)) + 'px';
+            card.style.top = Math.max(10, Math.min(window.innerHeight - 80, origTop + dy)) + 'px';
+        };
+
+        const onPointerUp = () => {
+            isDragging = false;
+            document.removeEventListener('pointermove', onPointerMove);
+            document.removeEventListener('pointerup', onPointerUp);
+        };
+
+        header.addEventListener('pointerdown', onPointerDown);
+    }
+
+    // Step selector pills
+    document.querySelectorAll('.calib-step-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            document.querySelectorAll('.calib-step-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            activeStepMeters = parseFloat(btn.dataset.step) || 0.5;
+        });
+    });
+
+    // Helper: Nudge position in meters
+    const nudge = (direction) => {
+        const dLat = activeStepMeters * (1 / 111320);
+        const midLat = (currentCalibration.south + currentCalibration.north) / 2;
+        const dLng = activeStepMeters * (1 / (111320 * Math.cos(midLat * Math.PI / 180)));
+
+        let south = currentCalibration.south;
+        let north = currentCalibration.north;
+        let west = currentCalibration.west;
+        let east = currentCalibration.east;
+
+        if (direction === 'north') {
+            north += dLat;
+            south += dLat;
+        } else if (direction === 'south') {
+            north -= dLat;
+            south -= dLat;
+        } else if (direction === 'east') {
+            east += dLng;
+            west += dLng;
+        } else if (direction === 'west') {
+            east -= dLng;
+            west -= dLng;
+        }
+
+        applyCalibration({ north, south, east, west });
+    };
+
+    const northBtn = document.getElementById('calibNudgeNorth');
+    const southBtn = document.getElementById('calibNudgeSouth');
+    const westBtn = document.getElementById('calibNudgeWest');
+    const eastBtn = document.getElementById('calibNudgeEast');
+    const centerBtn = document.getElementById('calibCenterView');
+
+    if (northBtn) northBtn.addEventListener('click', () => nudge('north'));
+    if (southBtn) southBtn.addEventListener('click', () => nudge('south'));
+    if (westBtn) westBtn.addEventListener('click', () => nudge('west'));
+    if (eastBtn) eastBtn.addEventListener('click', () => nudge('east'));
+
+    if (centerBtn) {
+        centerBtn.addEventListener('click', () => {
+            if (leafletMapInstance) {
+                const c = [
+                    (currentCalibration.south + currentCalibration.north) / 2,
+                    (currentCalibration.west + currentCalibration.east) / 2
+                ];
+                leafletMapInstance.setView(c, leafletMapInstance.getZoom(), { animate: true });
+            }
+        });
+    }
+
+    // Rotation controls
+    document.querySelectorAll('.calib-stepper-btn[data-rot]').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const delta = parseFloat(btn.dataset.rot) || 0;
+            let newRot = currentCalibration.rotation + delta;
+            newRot = Math.round(newRot * 100) / 100;
+            applyCalibration({ rotation: newRot });
+        });
+    });
+
+    const rotZeroBtn = document.getElementById('calibRotZero');
+    if (rotZeroBtn) {
+        rotZeroBtn.addEventListener('click', () => {
+            applyCalibration({ rotation: 0 });
+        });
+    }
+
+    const rotSlider = document.getElementById('calibRotationSlider');
+    if (rotSlider) {
+        rotSlider.addEventListener('input', (e) => {
+            const val = parseFloat(e.target.value) || 0;
+            applyCalibration({ rotation: val });
+        });
+    }
+
+    // Scale / Stretch controls
+    const scale = (axis, factor) => {
+        let south = currentCalibration.south;
+        let north = currentCalibration.north;
+        let west = currentCalibration.west;
+        let east = currentCalibration.east;
+
+        if (axis === 'width' || axis === 'both') {
+            const curSpan = east - west;
+            const delta = (curSpan * (factor - 1)) / 2;
+            east += delta;
+            west -= delta;
+        }
+        if (axis === 'height' || axis === 'both') {
+            const curSpan = north - south;
+            const delta = (curSpan * (factor - 1)) / 2;
+            north += delta;
+            south -= delta;
+        }
+
+        applyCalibration({ north, south, east, west });
+    };
+
+    const wDec = document.getElementById('calibWidthDec');
+    const wInc = document.getElementById('calibWidthInc');
+    const hDec = document.getElementById('calibHeightDec');
+    const hInc = document.getElementById('calibHeightInc');
+    const uDec = document.getElementById('calibUniformDec');
+    const uInc = document.getElementById('calibUniformInc');
+
+    if (wDec) wDec.addEventListener('click', () => scale('width', 0.99));
+    if (wInc) wInc.addEventListener('click', () => scale('width', 1.01));
+    if (hDec) hDec.addEventListener('click', () => scale('height', 0.99));
+    if (hInc) hInc.addEventListener('click', () => scale('height', 1.01));
+    if (uDec) uDec.addEventListener('click', () => scale('both', 0.99));
+    if (uInc) uInc.addEventListener('click', () => scale('both', 1.01));
+
+    // Opacity slider
+    const opSlider = document.getElementById('calibOpacitySlider');
+    if (opSlider) {
+        opSlider.addEventListener('input', (e) => {
+            const val = (parseFloat(e.target.value) || 85) / 100;
+            applyCalibration({ opacity: val });
+        });
+    }
+
+    // Save button
+    const saveBtn = document.getElementById('calibSaveBtn');
+    if (saveBtn) {
+        saveBtn.addEventListener('click', () => {
+            applyCalibration(currentCalibration, true);
+        });
+    }
+
+    // Copy config button
+    const copyBtn = document.getElementById('calibCopyBtn');
+    if (copyBtn) {
+        copyBtn.addEventListener('click', () => {
+            const snippet = `// Tada Calibrated KMZ Coordinates\nconst south = ${currentCalibration.south.toFixed(14)};\nconst north = ${currentCalibration.north.toFixed(14)};\nconst west = ${currentCalibration.west.toFixed(14)};\nconst east = ${currentCalibration.east.toFixed(14)};\nconst rotation = ${currentCalibration.rotation.toFixed(2)};\nconst opacity = ${currentCalibration.opacity.toFixed(2)};`;
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(snippet).then(() => {
+                    showToast('Configuration snippet copied to clipboard!');
+                }).catch(() => {
+                    prompt('Copy your calibrated coordinates:', snippet);
+                });
+            } else {
+                prompt('Copy your calibrated coordinates:', snippet);
+            }
+        });
+    }
+
+    // Reset button
+    const resetBtn = document.getElementById('calibResetBtn');
+    if (resetBtn) {
+        resetBtn.addEventListener('click', () => {
+            if (confirm('Reset layout position and rotation back to original KMZ defaults?')) {
+                localStorage.removeItem('tada_kmz_calibration');
+                applyCalibration(DEFAULT_CALIBRATION, false);
+                showToast('Reset to original KMZ default coordinates.');
+            }
+        });
+    }
+
+    updateCalibratorUI();
+}
+
