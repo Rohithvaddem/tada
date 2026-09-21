@@ -35,11 +35,13 @@ let currentViewMode = 'gis'; // Default to Google Satellite Map
 let zoomRafId = null;
 let toggleLayoutCalibrator = null;
 
+const CALIBRATION_KEY = 'tada_kmz_calibration_v2';
+
 const DEFAULT_CALIBRATION = {
-    south: 13.60048474355232,
-    north: 13.60367327671538,
-    west: 80.00845647404564,
-    east: 80.01215718242788,
+    south: 13.60048538116330,
+    north: 13.60367263910440,
+    west: 80.00837141302408,
+    east: 80.01266739092794,
     rotation: -5.70,
     opacity: 0.85
 };
@@ -48,11 +50,15 @@ let currentCalibration = Object.assign({}, DEFAULT_CALIBRATION);
 
 // Load persisted calibration from browser localStorage
 try {
-    const saved = typeof localStorage !== 'undefined' && localStorage.getItem('tada_kmz_calibration');
+    const saved = typeof localStorage !== 'undefined' && (localStorage.getItem(CALIBRATION_KEY) || localStorage.getItem('tada_kmz_calibration'));
     if (saved) {
         const parsed = JSON.parse(saved);
         if (parsed && typeof parsed.north === 'number' && typeof parsed.south === 'number') {
-            currentCalibration = Object.assign({}, DEFAULT_CALIBRATION, parsed);
+            // Discard stale legacy calibration if it was the previous default
+            const isOldDefault = Math.abs(parsed.east - 80.01215718242788) < 0.00001;
+            if (!isOldDefault) {
+                currentCalibration = Object.assign({}, DEFAULT_CALIBRATION, parsed);
+            }
         }
     }
 } catch (e) {
@@ -2182,6 +2188,7 @@ function applyCalibration(newCal, saveToStorage = false) {
 
     if (saveToStorage) {
         try {
+            localStorage.setItem(CALIBRATION_KEY, JSON.stringify(currentCalibration));
             localStorage.setItem('tada_kmz_calibration', JSON.stringify(currentCalibration));
             showToast('Calibration saved! New position will persist across reloads.');
         } catch (e) {
@@ -2461,6 +2468,7 @@ function setupLayoutCalibrator() {
     if (resetBtn) {
         resetBtn.addEventListener('click', () => {
             if (confirm('Reset layout position and rotation back to original KMZ defaults?')) {
+                localStorage.removeItem(CALIBRATION_KEY);
                 localStorage.removeItem('tada_kmz_calibration');
                 applyCalibration(DEFAULT_CALIBRATION, false);
                 showToast('Reset to original KMZ default coordinates.');
