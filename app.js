@@ -1227,8 +1227,7 @@ function updateStatistics() {
         { key: 'SOLD', label: 'SOLD', color: '#1d4ed8' },
         { key: 'HOLD', label: 'HOLD', color: '#8b5cf6' },
         { key: 'MORTGAGE', label: 'MORTGAGE', color: '#f97316' },
-        { key: 'REGISTERED', label: 'REGISTERED', color: '#ef4444' },
-        { key: 'ASPIREALTY', label: 'ASPIREALTY', color: '#10b981' }
+        { key: 'REGISTERED', label: 'REGISTERED', color: '#ef4444' }
     ];
 
     // Render Sidebar Legend items
@@ -1725,7 +1724,6 @@ function openPlotEditForm(plotNo) {
                     <option value="HOLD" ${currentStatus === 'HOLD' ? 'selected' : ''}>HOLD (Violet)</option>
                     <option value="MORTGAGE" ${currentStatus === 'MORTGAGE' ? 'selected' : ''}>MORTGAGE (Orange)</option>
                     <option value="REGISTERED" ${currentStatus === 'REGISTERED' ? 'selected' : ''}>REGISTERED (Red)</option>
-                    <option value="ASPIREALTY" ${currentStatus === 'ASPIREALTY' ? 'selected' : ''}>ASPIREALTY (Light Blue)</option>
                 </select>
             </div>
             
