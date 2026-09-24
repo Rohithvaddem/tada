@@ -2030,16 +2030,16 @@ function initLeafletMap() {
 
     // Add layout overlay with rotation and live calibration support
     layoutOverlayInstance = L.imageOverlay.rotated ?
-        L.imageOverlay.rotated('map_layout.webp?v=1.0.6', bounds, {
+        L.imageOverlay.rotated('map_layout.webp?v=1.0.7', bounds, {
             opacity: currentCalibration.opacity,
             rotation: currentCalibration.rotation,
             interactive: true,
-            errorOverlayUrl: 'map_layout.png?v=1.0.6'
+            errorOverlayUrl: 'map_layout.png?v=1.0.7'
         }).addTo(leafletMapInstance) :
-        L.imageOverlay('map_layout.webp?v=1.0.6', bounds, {
+        L.imageOverlay('map_layout.webp?v=1.0.7', bounds, {
             opacity: currentCalibration.opacity,
             interactive: true,
-            errorOverlayUrl: 'map_layout.png?v=1.0.6'
+            errorOverlayUrl: 'map_layout.png?v=1.0.7'
         }).addTo(leafletMapInstance);
 
     leafletMarkersLayer = L.layerGroup().addTo(leafletMapInstance);

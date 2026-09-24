@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -8,6 +9,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 </head>
+
 <body>
     <!-- Loading Screen -->
     <div id="loadingScreen" class="loading-screen">
@@ -28,7 +30,7 @@
                 </div>
                 <button class="sidebar-close" id="sidebarCloseBtn"><i class="fa-solid fa-xmark"></i></button>
             </div>
-            
+
             <div class="sidebar-content">
                 <!-- Search Section -->
                 <div class="sidebar-section">
@@ -36,41 +38,53 @@
                     <div class="search-container">
                         <div class="search-input-wrapper">
                             <i class="fa-solid fa-magnifying-glass search-icon"></i>
-                            <input type="text" class="search-input" id="searchInput" placeholder="Enter Plot No. (e.g. 50)">
-                            <button class="search-clear-btn" id="searchClearBtn"><i class="fa-solid fa-circle-xmark"></i></button>
+                            <input type="text" class="search-input" id="searchInput"
+                                placeholder="Enter Plot No. (e.g. 50)">
+                            <button class="search-clear-btn" id="searchClearBtn"><i
+                                    class="fa-solid fa-circle-xmark"></i></button>
                         </div>
                         <div class="search-suggestions" id="searchSuggestions"></div>
                     </div>
                 </div>
-                
-                
+
+
 
                 <!-- Mapper Mode Section (Plot Button Aligner) -->
-                <div class="sidebar-section" id="mapperSection" style="border-top: 1px solid var(--border-color); display: block;">
+                <div class="sidebar-section" id="mapperSection"
+                    style="border-top: 1px solid var(--border-color); display: block;">
                     <div class="section-header">
-                        <h3 class="section-title" style="color: var(--accent); margin-bottom: 0;"><i class="fa-solid fa-map-pin"></i> Plot Button Aligner</h3>
+                        <h3 class="section-title" style="color: var(--accent); margin-bottom: 0;"><i
+                                class="fa-solid fa-map-pin"></i> Plot Button Aligner</h3>
                         <button class="filter-reset-btn" id="toggleMapperBtn">Start</button>
                     </div>
                     <div id="mapperPanel" style="display: none; margin-top: 12px;">
-                        <p style="font-size: 11px; color: var(--text-secondary); margin-bottom: 10px; line-height: 1.4; text-align: left;">
-                            Select a plot below or click its dot on the map, then click on the map anywhere to align its button. The active plot will auto-advance.
+                        <p
+                            style="font-size: 11px; color: var(--text-secondary); margin-bottom: 10px; line-height: 1.4; text-align: left;">
+                            Select a plot below or click its dot on the map, then click on the map anywhere to align its
+                            button. The active plot will auto-advance.
                         </p>
                         <div style="display: flex; gap: 8px; align-items: center; margin-bottom: 12px;">
-                            <span style="font-size: 12px; font-weight: 600; color: var(--text-primary);">Active: Plot #</span>
-                            <input type="number" id="mapperActivePlot" style="width: 70px; background: var(--bg-tertiary); border: 1px solid var(--border-color); color: #fff; padding: 4px 8px; border-radius: 6px;" value="1" min="1" max="131">
+                            <span style="font-size: 12px; font-weight: 600; color: var(--text-primary);">Active: Plot
+                                #</span>
+                            <input type="number" id="mapperActivePlot"
+                                style="width: 70px; background: var(--bg-tertiary); border: 1px solid var(--border-color); color: #fff; padding: 4px 8px; border-radius: 6px;"
+                                value="1" min="1" max="131">
                         </div>
-                        <div style="max-height: 150px; overflow-y: auto; display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px; padding: 6px; background: rgba(0,0,0,0.2); border-radius: 8px; margin-bottom: 12px;" id="mapperPlotList">
+                        <div style="max-height: 150px; overflow-y: auto; display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px; padding: 6px; background: rgba(0,0,0,0.2); border-radius: 8px; margin-bottom: 12px;"
+                            id="mapperPlotList">
                             <!-- 1 to 131 plot buttons -->
                         </div>
-                        <button id="mapperExportBtn" class="admin-login-btn" style="background-color: var(--accent); color: #fff; border: none; font-weight: 700; width: 100%;">
+                        <button id="mapperExportBtn" class="admin-login-btn"
+                            style="background-color: var(--accent); color: #fff; border: none; font-weight: 700; width: 100%;">
                             <i class="fa-solid fa-download"></i> Export Coords Config
                         </button>
                     </div>
                 </div>
             </div>
-            
+
             <div class="sidebar-footer" id="sidebarFooter">
-                <button class="admin-login-btn" id="staffLoginBtn" style="border: none; cursor: pointer; width: 100%; display: flex; align-items: center; justify-content: center; gap: 8px;">
+                <button class="admin-login-btn" id="staffLoginBtn"
+                    style="border: none; cursor: pointer; width: 100%; display: flex; align-items: center; justify-content: center; gap: 8px;">
                     <i class="fa-solid fa-lock"></i> Staff Login
                 </button>
             </div>
@@ -86,7 +100,8 @@
                     <span class="badge approved-badge">
                         <i class="fa-solid fa-square-check"></i> Approved Layout
                     </span>
-                    <button class="filter-reset-btn" id="mapViewToggleBtn" style="display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; margin-left: 10px; font-weight: 600; cursor: pointer; border-radius: 6px; background: rgba(59, 130, 246, 0.15); border: 1px solid #3b82f6; color: #60a5fa;">
+                    <button class="filter-reset-btn" id="mapViewToggleBtn"
+                        style="display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; margin-left: 10px; font-weight: 600; cursor: pointer; border-radius: 6px; background: rgba(59, 130, 246, 0.15); border: 1px solid #3b82f6; color: #60a5fa;">
                         <i class="fa-solid fa-map"></i> <span>2D Plan View</span>
                     </button>
                 </div>
@@ -95,23 +110,28 @@
                         <div class="stat-header-label">Total Plots</div>
                         <div class="stat-header-val" id="statTotalPlots">131</div>
                     </div>
-                    <div class="stat-header-item" style="border-left: 1px solid var(--border-color); padding-left: 14px;">
+                    <div class="stat-header-item"
+                        style="border-left: 1px solid var(--border-color); padding-left: 14px;">
                         <div class="stat-header-label" style="color: #10b981;">Available</div>
                         <div class="stat-header-val" id="statAvailablePlots">0</div>
                     </div>
-                    <div class="stat-header-item" style="border-left: 1px solid var(--border-color); padding-left: 14px;">
+                    <div class="stat-header-item"
+                        style="border-left: 1px solid var(--border-color); padding-left: 14px;">
                         <div class="stat-header-label" style="color: #1d4ed8;">Sold</div>
                         <div class="stat-header-val" id="statSoldPlots">0</div>
                     </div>
-                    <div class="stat-header-item" style="border-left: 1px solid var(--border-color); padding-left: 14px;">
+                    <div class="stat-header-item"
+                        style="border-left: 1px solid var(--border-color); padding-left: 14px;">
                         <div class="stat-header-label" style="color: #8b5cf6;">Hold</div>
                         <div class="stat-header-val" id="statHoldPlots">0</div>
                     </div>
-                    <div class="stat-header-item" style="border-left: 1px solid var(--border-color); padding-left: 14px;">
+                    <div class="stat-header-item"
+                        style="border-left: 1px solid var(--border-color); padding-left: 14px;">
                         <div class="stat-header-label" style="color: #f97316;">Mortgage</div>
                         <div class="stat-header-val" id="statMortgagePlots">0</div>
                     </div>
-                    <div class="stat-header-item" style="border-left: 1px solid var(--border-color); padding-left: 14px;">
+                    <div class="stat-header-item"
+                        style="border-left: 1px solid var(--border-color); padding-left: 14px;">
                         <div class="stat-header-label" style="color: #ef4444;">Registered</div>
                         <div class="stat-header-val" id="statRegisteredPlots">0</div>
                     </div>
@@ -122,7 +142,8 @@
             <div class="map-viewport" id="mapViewport" style="background-color: #ffffff; background: #ffffff;">
                 <!-- Floating Legend Card -->
                 <div class="floating-legend-card" id="floatingLegendCard">
-                    <div class="floating-legend-header" id="floatingLegendHeader" title="Click to collapse/expand legend">
+                    <div class="floating-legend-header" id="floatingLegendHeader"
+                        title="Click to collapse/expand legend">
                         <div class="floating-legend-title">
                             <i class="fa-solid fa-palette" style="color: #60a5fa;"></i> <span>Plot Status Legend</span>
                         </div>
@@ -142,7 +163,9 @@
                 </div>
 
                 <!-- Interactive Leaflet GIS Satellite Map Container -->
-                <div id="leafletMap" style="width: 100%; height: 100%; position: absolute; top: 0; left: 0; z-index: 1; display: block;"></div>
+                <div id="leafletMap"
+                    style="width: 100%; height: 100%; position: absolute; top: 0; left: 0; z-index: 1; display: block;">
+                </div>
 
                 <!-- Layout Calibration HUD Panel (Accessed via Admin Login) -->
                 <div class="calibrator-card" id="calibratorCard" style="display: none;">
@@ -152,8 +175,10 @@
                             <span>KMZ Layout Calibrator</span>
                         </div>
                         <div class="calibrator-header-actions">
-                            <button class="calibrator-icon-btn" id="calibratorMinimizeBtn" title="Minimize / Expand"><i class="fa-solid fa-minus"></i></button>
-                            <button class="calibrator-icon-btn" id="calibratorCloseBtn" title="Close"><i class="fa-solid fa-xmark"></i></button>
+                            <button class="calibrator-icon-btn" id="calibratorMinimizeBtn" title="Minimize / Expand"><i
+                                    class="fa-solid fa-minus"></i></button>
+                            <button class="calibrator-icon-btn" id="calibratorCloseBtn" title="Close"><i
+                                    class="fa-solid fa-xmark"></i></button>
                         </div>
                     </div>
                     <div class="calibrator-body" id="calibratorBody">
@@ -170,15 +195,22 @@
 
                         <!-- Position Nudge (D-Pad) -->
                         <div class="calib-section">
-                            <div class="calib-section-title"><i class="fa-solid fa-arrows-up-down-left-right"></i> Move Layout Position</div>
+                            <div class="calib-section-title"><i class="fa-solid fa-arrows-up-down-left-right"></i> Move
+                                Layout Position</div>
                             <div class="calib-dpad">
-                                <button class="calib-dpad-btn calib-up" id="calibNudgeNorth" title="Move North">▲ N</button>
+                                <button class="calib-dpad-btn calib-up" id="calibNudgeNorth" title="Move North">▲
+                                    N</button>
                                 <div class="calib-dpad-mid">
-                                    <button class="calib-dpad-btn calib-left" id="calibNudgeWest" title="Move West">◀ W</button>
-                                    <button class="calib-dpad-btn calib-center" id="calibCenterView" title="Center Map on Layout"><i class="fa-solid fa-location-crosshairs"></i></button>
-                                    <button class="calib-dpad-btn calib-right" id="calibNudgeEast" title="Move East">E ▶</button>
+                                    <button class="calib-dpad-btn calib-left" id="calibNudgeWest" title="Move West">◀
+                                        W</button>
+                                    <button class="calib-dpad-btn calib-center" id="calibCenterView"
+                                        title="Center Map on Layout"><i
+                                            class="fa-solid fa-location-crosshairs"></i></button>
+                                    <button class="calib-dpad-btn calib-right" id="calibNudgeEast" title="Move East">E
+                                        ▶</button>
                                 </div>
-                                <button class="calib-dpad-btn calib-down" id="calibNudgeSouth" title="Move South">▼ S</button>
+                                <button class="calib-dpad-btn calib-down" id="calibNudgeSouth" title="Move South">▼
+                                    S</button>
                             </div>
                         </div>
 
@@ -192,17 +224,20 @@
                                 <button class="calib-stepper-btn" data-rot="-5">-5°</button>
                                 <button class="calib-stepper-btn" data-rot="-1">-1°</button>
                                 <button class="calib-stepper-btn" data-rot="-0.1">-0.1°</button>
-                                <button class="calib-stepper-btn calib-zero-btn" id="calibRotZero" title="Reset angle to 0°">0°</button>
+                                <button class="calib-stepper-btn calib-zero-btn" id="calibRotZero"
+                                    title="Reset angle to 0°">0°</button>
                                 <button class="calib-stepper-btn" data-rot="0.1">+0.1°</button>
                                 <button class="calib-stepper-btn" data-rot="1">+1°</button>
                                 <button class="calib-stepper-btn" data-rot="5">+5°</button>
                             </div>
-                            <input type="range" class="calib-slider" id="calibRotationSlider" min="-180" max="180" step="0.05" value="-5.7">
+                            <input type="range" class="calib-slider" id="calibRotationSlider" min="-180" max="180"
+                                step="0.05" value="-5.7">
                         </div>
 
                         <!-- Scale / Stretch -->
                         <div class="calib-section">
-                            <div class="calib-section-title"><i class="fa-solid fa-expand"></i> Stretch / Scale Dimensions</div>
+                            <div class="calib-section-title"><i class="fa-solid fa-expand"></i> Stretch / Scale
+                                Dimensions</div>
                             <div class="calib-scale-grid">
                                 <div class="calib-scale-col">
                                     <span class="calib-sublabel">Width (E-W)</span>
@@ -234,27 +269,36 @@
                                 <span><i class="fa-solid fa-circle-half-stroke"></i> Layout Overlay Opacity</span>
                                 <span class="calib-val-badge" id="calibOpacityBadge">85%</span>
                             </div>
-                            <input type="range" class="calib-slider" id="calibOpacitySlider" min="10" max="100" step="5" value="85">
+                            <input type="range" class="calib-slider" id="calibOpacitySlider" min="10" max="100" step="5"
+                                value="85">
                         </div>
 
                         <!-- Live Coordinates Readout -->
                         <div class="calib-coords-box" id="calibCoordsBox">
-                            <div class="calib-coord-line"><span>North:</span> <strong id="calibReadoutNorth">13.60367264</strong></div>
-                            <div class="calib-coord-line"><span>South:</span> <strong id="calibReadoutSouth">13.60048538</strong></div>
-                            <div class="calib-coord-line"><span>East:</span> <strong id="calibReadoutEast">80.01266739</strong></div>
-                            <div class="calib-coord-line"><span>West:</span> <strong id="calibReadoutWest">80.00837141</strong></div>
-                            <div class="calib-coord-line"><span>Rotation:</span> <strong id="calibReadoutRot">-5.70°</strong></div>
+                            <div class="calib-coord-line"><span>North:</span> <strong
+                                    id="calibReadoutNorth">13.60367264</strong></div>
+                            <div class="calib-coord-line"><span>South:</span> <strong
+                                    id="calibReadoutSouth">13.60048538</strong></div>
+                            <div class="calib-coord-line"><span>East:</span> <strong
+                                    id="calibReadoutEast">80.01266739</strong></div>
+                            <div class="calib-coord-line"><span>West:</span> <strong
+                                    id="calibReadoutWest">80.00837141</strong></div>
+                            <div class="calib-coord-line"><span>Rotation:</span> <strong
+                                    id="calibReadoutRot">-5.70°</strong></div>
                         </div>
 
                         <!-- Actions -->
                         <div class="calib-actions">
-                            <button class="calib-action-btn calib-save-btn" id="calibSaveBtn" title="Save calibration into your browser storage">
+                            <button class="calib-action-btn calib-save-btn" id="calibSaveBtn"
+                                title="Save calibration into your browser storage">
                                 <i class="fa-solid fa-floppy-disk"></i> Save & Persist
                             </button>
-                            <button class="calib-action-btn calib-copy-btn" id="calibCopyBtn" title="Copy exact coordinates to clipboard">
+                            <button class="calib-action-btn calib-copy-btn" id="calibCopyBtn"
+                                title="Copy exact coordinates to clipboard">
                                 <i class="fa-solid fa-copy"></i> Copy Config
                             </button>
-                            <button class="calib-action-btn calib-reset-btn" id="calibResetBtn" title="Reset to original KMZ defaults">
+                            <button class="calib-action-btn calib-reset-btn" id="calibResetBtn"
+                                title="Reset to original KMZ defaults">
                                 <i class="fa-solid fa-rotate-left"></i> Reset
                             </button>
                         </div>
@@ -289,22 +333,32 @@
 
                 <form id="loginForm" style="display: flex; flex-direction: column; gap: 16px;">
                     <div style="display: flex; flex-direction: column; gap: 6px; text-align: left;">
-                        <label id="loginUsernameLabel" style="font-size: 12px; font-weight: 600; color: var(--text-secondary);">Username / Login ID</label>
-                        <input type="text" id="loginUsername" required style="background: var(--bg-tertiary); border: 1px solid var(--border-color); color: #fff; padding: 10px 12px; border-radius: 8px; font-size: 14px; outline: none;" placeholder="Enter staff username">
+                        <label id="loginUsernameLabel"
+                            style="font-size: 12px; font-weight: 600; color: var(--text-secondary);">Username / Login
+                            ID</label>
+                        <input type="text" id="loginUsername" required
+                            style="background: var(--bg-tertiary); border: 1px solid var(--border-color); color: #fff; padding: 10px 12px; border-radius: 8px; font-size: 14px; outline: none;"
+                            placeholder="Enter staff username">
                     </div>
                     <div style="display: flex; flex-direction: column; gap: 6px; text-align: left;">
                         <label style="font-size: 12px; font-weight: 600; color: var(--text-secondary);">Password</label>
                         <div style="position: relative; width: 100%;">
-                            <input type="password" id="loginPassword" required style="width: 100%; background: var(--bg-tertiary); border: 1px solid var(--border-color); color: #fff; padding: 10px 38px 10px 12px; border-radius: 8px; font-size: 14px; outline: none;" placeholder="Enter password">
-                            <button type="button" id="togglePasswordBtn" title="Toggle Password Visibility" style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: none; border: none; color: var(--text-secondary); cursor: pointer; font-size: 14px; padding: 4px;">
+                            <input type="password" id="loginPassword" required
+                                style="width: 100%; background: var(--bg-tertiary); border: 1px solid var(--border-color); color: #fff; padding: 10px 38px 10px 12px; border-radius: 8px; font-size: 14px; outline: none;"
+                                placeholder="Enter password">
+                            <button type="button" id="togglePasswordBtn" title="Toggle Password Visibility"
+                                style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: none; border: none; color: var(--text-secondary); cursor: pointer; font-size: 14px; padding: 4px;">
                                 <i class="fa-solid fa-eye" id="togglePasswordIcon"></i>
                             </button>
                         </div>
                     </div>
-                    <div id="loginError" style="color: var(--status-mortgage); font-size: 12px; text-align: left; display: none; font-weight: 600;">
-                        <i class="fa-solid fa-circle-exclamation"></i> Invalid credentials! Please verify username and password.
+                    <div id="loginError"
+                        style="color: var(--status-mortgage); font-size: 12px; text-align: left; display: none; font-weight: 600;">
+                        <i class="fa-solid fa-circle-exclamation"></i> Invalid credentials! Please verify username and
+                        password.
                     </div>
-                    <button type="submit" id="loginSubmitBtn" class="admin-login-btn" style="background-color: var(--accent); color: #fff; border: none; font-weight: 700; padding: 12px; font-size: 14px; margin-top: 8px; cursor: pointer; border-radius: 8px;">
+                    <button type="submit" id="loginSubmitBtn" class="admin-login-btn"
+                        style="background-color: var(--accent); color: #fff; border: none; font-weight: 700; padding: 12px; font-size: 14px; margin-top: 8px; cursor: pointer; border-radius: 8px;">
                         Login as Staff
                     </button>
                 </form>
@@ -318,4 +372,5 @@
     <script src="data.js?v=1.1.0"></script>
     <script src="app.js?v=1.1.0"></script>
 </body>
+
 </html>
