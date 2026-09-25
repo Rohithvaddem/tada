@@ -35,11 +35,11 @@ let currentViewMode = 'gis'; // Default to Google Satellite Map
 let zoomRafId = null;
 let toggleLayoutCalibrator = null;
 
-const CALIBRATION_KEY = 'tada_kmz_calibration_v2';
+const CALIBRATION_KEY = 'tada_kmz_calibration_v3';
 
 const DEFAULT_CALIBRATION = {
-    south: 13.60048538116330,
-    north: 13.60367263910440,
+    south: 13.60035208141731,
+    north: 13.60363525972711,
     west: 80.00837141302408,
     east: 80.01266739092794,
     rotation: -5.70,
@@ -50,15 +50,11 @@ let currentCalibration = Object.assign({}, DEFAULT_CALIBRATION);
 
 // Load persisted calibration from browser localStorage
 try {
-    const saved = typeof localStorage !== 'undefined' && (localStorage.getItem(CALIBRATION_KEY) || localStorage.getItem('tada_kmz_calibration'));
+    const saved = typeof localStorage !== 'undefined' && localStorage.getItem(CALIBRATION_KEY);
     if (saved) {
         const parsed = JSON.parse(saved);
         if (parsed && typeof parsed.north === 'number' && typeof parsed.south === 'number') {
-            // Discard stale legacy calibration if it was the previous default
-            const isOldDefault = Math.abs(parsed.east - 80.01215718242788) < 0.00001;
-            if (!isOldDefault) {
-                currentCalibration = Object.assign({}, DEFAULT_CALIBRATION, parsed);
-            }
+            currentCalibration = Object.assign({}, DEFAULT_CALIBRATION, parsed);
         }
     }
 } catch (e) {
