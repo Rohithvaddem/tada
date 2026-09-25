@@ -1,11 +1,11 @@
 const plotCoordinates = {
     "1": {
-        "left": 891,
-        "top": 81
+        "left": 906,
+        "top": 73
     },
     "2": {
-        "left": 891,
-        "top": 124
+        "left": 901,
+        "top": 123
     },
     "3": {
         "left": 891,
