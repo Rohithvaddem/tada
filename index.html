@@ -5,7 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Tada Layout Digital View | Aspirealty</title>
-    <link rel="stylesheet" href="style.css?v=1.5.0">
+    <link rel="stylesheet" href="style.css?v=1.6.0">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 </head>
@@ -305,6 +305,88 @@
                     </div>
                 </div>
 
+                <!-- Plot Coordinates Calibrator HUD Panel (Accessed via Admin Login) -->
+                <div class="calibrator-card plot-calibrator-card" id="plotCalibratorCard" style="display: none;">
+                    <div class="calibrator-header plot-calibrator-header" id="plotCalibratorHeader">
+                        <div class="calibrator-title">
+                            <i class="fa-solid fa-bullseye" style="color: #38bdf8;"></i>
+                            <span>Plot Calibrator</span>
+                        </div>
+                        <div class="calibrator-header-actions">
+                            <button class="calibrator-icon-btn" id="plotCalibMinimizeBtn" title="Minimize / Expand"><i
+                                    class="fa-solid fa-minus"></i></button>
+                            <button class="calibrator-icon-btn" id="plotCalibCloseBtn" title="Close"><i
+                                    class="fa-solid fa-xmark"></i></button>
+                        </div>
+                    </div>
+                    <div class="calibrator-body" id="plotCalibratorBody">
+                        <!-- Target Plot Selector -->
+                        <div class="calib-section">
+                            <div class="calib-section-title">
+                                <span><i class="fa-solid fa-map-pin"></i> Select Target Plot</span>
+                                <span class="calib-val-badge" id="plotCalibTargetBadge">Plot #1</span>
+                            </div>
+                            <div style="display: flex; gap: 6px; align-items: center;">
+                                <button class="calib-stepper-btn" id="plotCalibPrevBtn" title="Previous Plot" style="flex: 0 0 32px; height: 32px;"><i class="fa-solid fa-chevron-left"></i></button>
+                                <select id="plotCalibSelect" style="flex: 1; height: 32px; background: #0f172a; border: 1px solid rgba(56, 189, 248, 0.4); color: #f8fafc; padding: 4px 8px; border-radius: 6px; font-weight: 700; font-size: 12px; outline: none; cursor: pointer;">
+                                    <option value="ALL">🌐 [All Plots] (Shift Entire Grid)</option>
+                                    <!-- Populated dynamically 1 to 131 -->
+                                </select>
+                                <button class="calib-stepper-btn" id="plotCalibNextBtn" title="Next Plot" style="flex: 0 0 32px; height: 32px;"><i class="fa-solid fa-chevron-right"></i></button>
+                            </div>
+                            <div style="font-size: 10px; color: #94a3b8; display: flex; align-items: center; gap: 4px;">
+                                <i class="fa-solid fa-circle-info" style="color: #38bdf8;"></i> Tip: Click any plot on the map to select it
+                            </div>
+                        </div>
+
+                        <!-- Step Selector -->
+                        <div class="calib-row">
+                            <label class="calib-label">Nudge Step:</label>
+                            <div class="calib-step-pills" id="plotCalibStepPills">
+                                <button class="calib-step-btn active" data-step="1">1px</button>
+                                <button class="calib-step-btn" data-step="2">2px</button>
+                                <button class="calib-step-btn" data-step="5">5px</button>
+                                <button class="calib-step-btn" data-step="10">10px</button>
+                            </div>
+                        </div>
+
+                        <!-- Position Nudge (D-Pad) -->
+                        <div class="calib-section">
+                            <div class="calib-section-title"><i class="fa-solid fa-arrows-up-down-left-right"></i> Move Plot Position</div>
+                            <div class="calib-dpad">
+                                <button class="calib-dpad-btn calib-up" id="plotNudgeUp" title="Move Up (Y-)">▲ Up</button>
+                                <div class="calib-dpad-mid">
+                                    <button class="calib-dpad-btn calib-left" id="plotNudgeLeft" title="Move Left (X-)">◀ Left</button>
+                                    <button class="calib-dpad-btn calib-center" id="plotCenterView" title="Center View on Plot"><i class="fa-solid fa-location-crosshairs"></i></button>
+                                    <button class="calib-dpad-btn calib-right" id="plotNudgeRight" title="Move Right (X+)">Right ▶</button>
+                                </div>
+                                <button class="calib-dpad-btn calib-down" id="plotNudgeDown" title="Move Down (Y+)">▼ Down</button>
+                            </div>
+                        </div>
+
+                        <!-- Live Coordinates Readout -->
+                        <div class="calib-coords-box" id="plotCalibCoordsBox">
+                            <div class="calib-coord-line"><span>Target:</span> <strong id="plotReadoutTarget">Plot #1</strong></div>
+                            <div class="calib-coord-line"><span>Left (X):</span> <strong id="plotReadoutLeft">906 px</strong></div>
+                            <div class="calib-coord-line"><span>Top (Y):</span> <strong id="plotReadoutTop">73 px</strong></div>
+                            <div class="calib-coord-line"><span>Offset from default:</span> <strong id="plotReadoutDelta">ΔX: 0px, ΔY: 0px</strong></div>
+                        </div>
+
+                        <!-- Actions -->
+                        <div class="calib-actions">
+                            <button class="calib-action-btn calib-save-btn" id="plotCalibSaveBtn" style="background: linear-gradient(135deg, #0284c7, #0369a1); color: #fff; box-shadow: 0 2px 8px rgba(2, 132, 199, 0.4);" title="Save plot coordinates to browser storage">
+                                <i class="fa-solid fa-floppy-disk"></i> Save & Persist
+                            </button>
+                            <button class="calib-action-btn calib-copy-btn" id="plotCalibCopyBtn" title="Copy plot coordinates code snippet">
+                                <i class="fa-solid fa-copy"></i> Copy Config
+                            </button>
+                            <button class="calib-action-btn calib-reset-btn" id="plotCalibResetBtn" title="Reset plot coordinates to default">
+                                <i class="fa-solid fa-rotate-left"></i> Reset
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
 
                 <!-- Modal Backdrop -->
                 <div class="modal-backdrop" id="modalBackdrop">
@@ -368,9 +450,9 @@
 
     <!-- Scripts -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script src="plot_coords.js?v=1.5.0"></script>
-    <script src="data.js?v=1.5.0"></script>
-    <script src="app.js?v=1.5.0"></script>
+    <script src="plot_coords.js?v=1.6.0"></script>
+    <script src="data.js?v=1.6.0"></script>
+    <script src="app.js?v=1.6.0"></script>
 </body>
 
 </html>

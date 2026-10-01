@@ -1909,6 +1909,36 @@ button,
     color: #fff;
 }
 
+/* Plot Calibrator Theming & Active Targeting */
+.plot-calibrator-card {
+    border-color: rgba(56, 189, 248, 0.45) !important;
+    box-shadow: 0 18px 45px rgba(0, 0, 0, 0.65), 0 0 18px rgba(56, 189, 248, 0.2) !important;
+}
+
+.plot-calibrator-header {
+    background: rgba(14, 165, 233, 0.16) !important;
+    border-bottom: 1px solid rgba(56, 189, 248, 0.3) !important;
+}
+
+.plot-dot-calibrating {
+    outline: 3px solid #38bdf8 !important;
+    outline-offset: 3px !important;
+    box-shadow: 0 0 16px #38bdf8, 0 0 28px rgba(56, 189, 248, 0.9) !important;
+    animation: plot-calib-pulse 1s infinite alternate !important;
+    z-index: 99 !important;
+}
+
+@keyframes plot-calib-pulse {
+    from {
+        outline-color: #38bdf8;
+        filter: brightness(1.2);
+    }
+    to {
+        outline-color: #facc15;
+        filter: brightness(1.6);
+    }
+}
+
 /* ====================================================
    Leaflet Layers & Overlays Switcher Styling
    ==================================================== */

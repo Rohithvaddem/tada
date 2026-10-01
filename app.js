@@ -34,6 +34,29 @@ let leafletMarkersLayer = null;
 let currentViewMode = 'gis'; // Default to Google Satellite Map
 let zoomRafId = null;
 let toggleLayoutCalibrator = null;
+let togglePlotCalibrator = null;
+let activeCalibPlot = '1';
+let plotCalibStep = 1;
+
+const DEFAULT_PLOT_COORDINATES = (typeof plotCoordinates !== 'undefined')
+    ? JSON.parse(JSON.stringify(plotCoordinates))
+    : {};
+const PLOT_COORDS_STORAGE_KEY = 'tada_custom_plot_coords_v1';
+
+// Load persisted plot coordinate overrides from browser localStorage
+try {
+    if (typeof localStorage !== 'undefined') {
+        const savedCustomCoords = localStorage.getItem(PLOT_COORDS_STORAGE_KEY);
+        if (savedCustomCoords) {
+            const parsed = JSON.parse(savedCustomCoords);
+            if (parsed && typeof parsed === 'object') {
+                Object.assign(plotCoordinates, parsed);
+            }
+        }
+    }
+} catch (e) {
+    console.warn('Could not read saved plot coordinates', e);
+}
 
 const CALIBRATION_KEY = 'tada_kmz_calibration_v3';
 
@@ -139,6 +162,7 @@ function startTadaApp() {
     setupMapViewToggle();
     initLeafletMap();
     setupLayoutCalibrator();
+    setupPlotCalibrator();
 
     // Dismiss loader promptly once app has initialized
     setTimeout(dismissLoader, 400);
@@ -175,7 +199,7 @@ function getPlotEffectiveStatus(item) {
 }
 
 const DB_VERSION_KEY = 'tada_db_version';
-const CURRENT_DB_VERSION = '1.5.0';
+const CURRENT_DB_VERSION = '1.6.0';
 
 // Invalidate stale localStorage cache whenever the bundled database version increments
 try {
@@ -735,6 +759,12 @@ function applyFilters() {
 // ----------------------------------------------------
 
 function openPlotModal(plotNo) {
+    const plotCalibCard = document.getElementById('plotCalibratorCard');
+    if (plotCalibCard && plotCalibCard.style.display !== 'none' && typeof selectCalibPlot === 'function') {
+        selectCalibPlot(plotNo);
+        return;
+    }
+
     const item = plotData.find(p => String(p.plot_no) === String(plotNo)) || {
         plot_no: plotNo,
         plot_size: 'N/A',
@@ -1630,6 +1660,9 @@ function setupAdminState() {
                 <button class="admin-login-btn" id="adminCalibrateBtn" style="background: linear-gradient(135deg, #d97706, #b45309); color: #fff; border: 1px solid #f59e0b; font-weight: 700; cursor: pointer; padding: 10px; border-radius: 8px; display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; font-size: 13px; box-shadow: 0 2px 8px rgba(217, 119, 6, 0.35);">
                     <i class="fa-solid fa-crosshairs"></i> Calibrate KMZ Layout
                 </button>
+                <button class="admin-login-btn" id="adminPlotCalibrateBtn" style="background: linear-gradient(135deg, #0284c7, #0369a1); color: #fff; border: 1px solid #38bdf8; font-weight: 700; cursor: pointer; padding: 10px; border-radius: 8px; display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; font-size: 13px; box-shadow: 0 2px 8px rgba(2, 132, 199, 0.35);">
+                    <i class="fa-solid fa-bullseye"></i> Calibrate Plot Coordinates
+                </button>
                 <button class="admin-login-btn" id="exportDbBtn" style="background-color: var(--accent); color: #fff; border: none; font-weight: 700; cursor: pointer; padding: 10px; border-radius: 8px; display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; font-size: 13px;">
                     <i class="fa-solid fa-download"></i> Export data.json
                 </button>
@@ -1647,6 +1680,15 @@ function setupAdminState() {
             calibBtn.addEventListener('click', () => {
                 if (typeof toggleLayoutCalibrator === 'function') {
                     toggleLayoutCalibrator();
+                }
+            });
+        }
+
+        const plotCalibBtn = document.getElementById('adminPlotCalibrateBtn');
+        if (plotCalibBtn) {
+            plotCalibBtn.addEventListener('click', () => {
+                if (typeof togglePlotCalibrator === 'function') {
+                    togglePlotCalibrator();
                 }
             });
         }
@@ -1677,6 +1719,8 @@ function setupAdminState() {
             sessionStorage.removeItem('isAdminLoggedIn');
             const card = document.getElementById('calibratorCard');
             if (card) card.style.display = 'none';
+            const plotCard = document.getElementById('plotCalibratorCard');
+            if (plotCard) plotCard.style.display = 'none';
             alert('Logged out successfully.');
             window.location.reload();
         });
@@ -1686,7 +1730,7 @@ function setupAdminState() {
             banner = document.createElement('div');
             banner.id = 'adminBanner';
             banner.style.cssText = 'background: linear-gradient(90deg, #b45309, #d97706); color: #fff; text-align: center; padding: 8px; font-size: 12px; font-weight: 700; display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; z-index: 1000; position: relative;';
-            banner.innerHTML = `<i class="fa-solid fa-user-shield"></i> ADMINISTRATOR MODE ACTIVE &bull; Click any plot card to edit details, or <button id="bannerCalibrateBtn" style="background: rgba(0,0,0,0.35); border: 1px solid rgba(255,255,255,0.4); color: #fff; padding: 3px 10px; border-radius: 6px; font-weight: 700; cursor: pointer; margin-left: 6px; font-size: 11px;"><i class="fa-solid fa-crosshairs"></i> Calibrate Layout</button>`;
+            banner.innerHTML = `<i class="fa-solid fa-user-shield"></i> ADMINISTRATOR MODE ACTIVE &bull; Click any plot card to edit details, or <button id="bannerCalibrateBtn" style="background: rgba(0,0,0,0.35); border: 1px solid rgba(255,255,255,0.4); color: #fff; padding: 3px 10px; border-radius: 6px; font-weight: 700; cursor: pointer; margin-left: 6px; font-size: 11px;"><i class="fa-solid fa-crosshairs"></i> Calibrate Layout</button> <button id="bannerPlotCalibrateBtn" style="background: rgba(0,0,0,0.35); border: 1px solid rgba(56, 189, 248, 0.5); color: #38bdf8; padding: 3px 10px; border-radius: 6px; font-weight: 700; cursor: pointer; margin-left: 6px; font-size: 11px;"><i class="fa-solid fa-bullseye"></i> Plot Calibrator</button>`;
             document.body.insertBefore(banner, document.body.firstChild);
 
             const bCalibBtn = document.getElementById('bannerCalibrateBtn');
@@ -1697,12 +1741,23 @@ function setupAdminState() {
                     }
                 });
             }
+
+            const bPlotCalibBtn = document.getElementById('bannerPlotCalibrateBtn');
+            if (bPlotCalibBtn) {
+                bPlotCalibBtn.addEventListener('click', () => {
+                    if (typeof togglePlotCalibrator === 'function') {
+                        togglePlotCalibrator(true);
+                    }
+                });
+            }
         }
     } else {
         if (mapperSection) mapperSection.style.display = 'none';
 
         const card = document.getElementById('calibratorCard');
         if (card) card.style.display = 'none';
+        const plotCard = document.getElementById('plotCalibratorCard');
+        if (plotCard) plotCard.style.display = 'none';
 
         sidebarFooter.innerHTML = `
             <button class="admin-login-btn" id="staffLoginBtn" style="border: none; cursor: pointer; width: 100%; display: flex; align-items: center; justify-content: center; gap: 8px;">
@@ -2495,5 +2550,295 @@ function setupLayoutCalibrator() {
     }
 
     updateCalibratorUI();
+}
+
+// ----------------------------------------------------
+// Plot Coordinates Calibrator (Admin Tool)
+// ----------------------------------------------------
+
+function selectCalibPlot(plotNo) {
+    activeCalibPlot = String(plotNo);
+    const select = document.getElementById('plotCalibSelect');
+    if (select) select.value = activeCalibPlot;
+
+    // Highlight active plot marker with cyan targeting glow
+    document.querySelectorAll('.plot-dot-calibrating').forEach(el => el.classList.remove('plot-dot-calibrating'));
+    const dot2d = document.getElementById(`plot-dot-${activeCalibPlot}`);
+    const dotLeaflet = document.getElementById(`leaflet-plot-dot-${activeCalibPlot}`);
+    if (dot2d) dot2d.classList.add('plot-dot-calibrating');
+    if (dotLeaflet) dotLeaflet.classList.add('plot-dot-calibrating');
+
+    updatePlotCalibratorUI();
+
+    // Smoothly focus/pan to the plot
+    if (typeof focusOnPlot === 'function' && activeCalibPlot !== 'ALL') {
+        focusOnPlot(activeCalibPlot);
+    }
+}
+
+function updatePlotCalibratorUI() {
+    const targetBadge = document.getElementById('plotCalibTargetBadge');
+    const readoutTarget = document.getElementById('plotReadoutTarget');
+    const readoutLeft = document.getElementById('plotReadoutLeft');
+    const readoutTop = document.getElementById('plotReadoutTop');
+    const readoutDelta = document.getElementById('plotReadoutDelta');
+
+    if (activeCalibPlot === 'ALL') {
+        if (targetBadge) targetBadge.textContent = 'All Plots (Grid)';
+        if (readoutTarget) readoutTarget.textContent = 'All 131 Plots';
+        if (readoutLeft) readoutLeft.textContent = 'Multi (Grid)';
+        if (readoutTop) readoutTop.textContent = 'Multi (Grid)';
+        if (readoutDelta) readoutDelta.textContent = 'Offsetting entire grid';
+    } else {
+        const cur = plotCoordinates[activeCalibPlot] || { left: 0, top: 0 };
+        const def = (DEFAULT_PLOT_COORDINATES && DEFAULT_PLOT_COORDINATES[activeCalibPlot]) || cur;
+        const dx = Math.round(cur.left - def.left);
+        const dy = Math.round(cur.top - def.top);
+
+        if (targetBadge) targetBadge.textContent = `Plot #${activeCalibPlot}`;
+        if (readoutTarget) readoutTarget.textContent = `Plot #${activeCalibPlot}`;
+        if (readoutLeft) readoutLeft.textContent = `${cur.left} px`;
+        if (readoutTop) readoutTop.textContent = `${cur.top} px`;
+        if (readoutDelta) {
+            const dxSign = dx >= 0 ? `+${dx}` : `${dx}`;
+            const dySign = dy >= 0 ? `+${dy}` : `${dy}`;
+            readoutDelta.textContent = `ΔX: ${dxSign}px, ΔY: ${dySign}px`;
+        }
+    }
+}
+
+function nudgeActivePlot(dx, dy) {
+    if (activeCalibPlot === 'ALL') {
+        Object.keys(plotCoordinates).forEach(k => {
+            if (plotCoordinates[k]) {
+                plotCoordinates[k].left = Math.round(plotCoordinates[k].left + dx);
+                plotCoordinates[k].top = Math.round(plotCoordinates[k].top + dy);
+            }
+        });
+    } else {
+        if (!plotCoordinates[activeCalibPlot]) {
+            plotCoordinates[activeCalibPlot] = { left: 0, top: 0 };
+        }
+        plotCoordinates[activeCalibPlot].left = Math.round(plotCoordinates[activeCalibPlot].left + dx);
+        plotCoordinates[activeCalibPlot].top = Math.round(plotCoordinates[activeCalibPlot].top + dy);
+    }
+
+    renderPlotDots();
+    renderLeafletPlotMarkers();
+
+    // Reapply targeting class to active plot
+    if (activeCalibPlot !== 'ALL') {
+        const dot2d = document.getElementById(`plot-dot-${activeCalibPlot}`);
+        const dotLeaflet = document.getElementById(`leaflet-plot-dot-${activeCalibPlot}`);
+        if (dot2d) dot2d.classList.add('plot-dot-calibrating');
+        if (dotLeaflet) dotLeaflet.classList.add('plot-dot-calibrating');
+    }
+
+    updatePlotCalibratorUI();
+}
+
+function setupPlotCalibrator() {
+    const card = document.getElementById('plotCalibratorCard');
+    const closeBtn = document.getElementById('plotCalibCloseBtn');
+    const minBtn = document.getElementById('plotCalibMinimizeBtn');
+    const header = document.getElementById('plotCalibratorHeader');
+    const select = document.getElementById('plotCalibSelect');
+    const prevBtn = document.getElementById('plotCalibPrevBtn');
+    const nextBtn = document.getElementById('plotCalibNextBtn');
+
+    if (!card) return;
+
+    // Populate select with 1..131
+    if (select) {
+        select.innerHTML = '<option value="ALL">🌐 [All Plots] (Shift Entire Grid)</option>';
+        for (let i = 1; i <= 131; i++) {
+            const opt = document.createElement('option');
+            opt.value = String(i);
+            opt.textContent = `Plot #${i}`;
+            select.appendChild(opt);
+        }
+        select.value = activeCalibPlot;
+        select.addEventListener('change', (e) => {
+            selectCalibPlot(e.target.value);
+        });
+    }
+
+    if (prevBtn) {
+        prevBtn.addEventListener('click', () => {
+            if (activeCalibPlot === 'ALL') {
+                selectCalibPlot('131');
+            } else {
+                let p = parseInt(activeCalibPlot, 10) - 1;
+                if (p < 1) p = 131;
+                selectCalibPlot(String(p));
+            }
+        });
+    }
+
+    if (nextBtn) {
+        nextBtn.addEventListener('click', () => {
+            if (activeCalibPlot === 'ALL') {
+                selectCalibPlot('1');
+            } else {
+                let p = parseInt(activeCalibPlot, 10) + 1;
+                if (p > 131) p = 1;
+                selectCalibPlot(String(p));
+            }
+        });
+    }
+
+    // Toggle card visibility
+    togglePlotCalibrator = (forceState) => {
+        const isHidden = card.style.display === 'none' || !card.style.display;
+        const targetState = typeof forceState === 'boolean' ? forceState : isHidden;
+        card.style.display = targetState ? 'flex' : 'none';
+        if (targetState) {
+            selectCalibPlot(activeCalibPlot);
+            updatePlotCalibratorUI();
+            showToast('Plot Calibrator active! Click any plot on the map to calibrate.');
+        } else {
+            document.querySelectorAll('.plot-dot-calibrating').forEach(el => el.classList.remove('plot-dot-calibrating'));
+        }
+    };
+
+    if (closeBtn) closeBtn.addEventListener('click', () => { togglePlotCalibrator(false); });
+
+    if (minBtn) {
+        minBtn.addEventListener('click', () => {
+            card.classList.toggle('minimized');
+            minBtn.innerHTML = card.classList.contains('minimized') ?
+                '<i class="fa-solid fa-plus"></i>' :
+                '<i class="fa-solid fa-minus"></i>';
+        });
+    }
+
+    // Draggable header
+    if (header) {
+        let isDragging = false;
+        let startX, startY, origLeft, origTop;
+
+        const onPointerDown = (e) => {
+            if (e.target.closest('button') || e.target.closest('select')) return;
+            isDragging = true;
+            const clientX = e.clientX || (e.touches && e.touches[0].clientX);
+            const clientY = e.clientY || (e.touches && e.touches[0].clientY);
+            startX = clientX;
+            startY = clientY;
+            const rect = card.getBoundingClientRect();
+            origLeft = rect.left;
+            origTop = rect.top;
+            card.style.right = 'auto';
+            card.style.left = origLeft + 'px';
+            card.style.top = origTop + 'px';
+            document.addEventListener('pointermove', onPointerMove);
+            document.addEventListener('pointerup', onPointerUp);
+        };
+
+        const onPointerMove = (e) => {
+            if (!isDragging) return;
+            const clientX = e.clientX || (e.touches && e.touches[0].clientX);
+            const clientY = e.clientY || (e.touches && e.touches[0].clientY);
+            const dx = clientX - startX;
+            const dy = clientY - startY;
+            card.style.left = Math.max(10, Math.min(window.innerWidth - 350, origLeft + dx)) + 'px';
+            card.style.top = Math.max(10, Math.min(window.innerHeight - 80, origTop + dy)) + 'px';
+        };
+
+        const onPointerUp = () => {
+            isDragging = false;
+            document.removeEventListener('pointermove', onPointerMove);
+            document.removeEventListener('pointerup', onPointerUp);
+        };
+
+        header.addEventListener('pointerdown', onPointerDown);
+    }
+
+    // Step selector pills
+    document.querySelectorAll('#plotCalibStepPills .calib-step-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            document.querySelectorAll('#plotCalibStepPills .calib-step-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            plotCalibStep = parseFloat(btn.dataset.step) || 1;
+        });
+    });
+
+    // D-Pad buttons
+    const upBtn = document.getElementById('plotNudgeUp');
+    const downBtn = document.getElementById('plotNudgeDown');
+    const leftBtn = document.getElementById('plotNudgeLeft');
+    const rightBtn = document.getElementById('plotNudgeRight');
+    const centerBtn = document.getElementById('plotCenterView');
+
+    if (upBtn) upBtn.addEventListener('click', () => nudgeActivePlot(0, -plotCalibStep));
+    if (downBtn) downBtn.addEventListener('click', () => nudgeActivePlot(0, plotCalibStep));
+    if (leftBtn) leftBtn.addEventListener('click', () => nudgeActivePlot(-plotCalibStep, 0));
+    if (rightBtn) rightBtn.addEventListener('click', () => nudgeActivePlot(plotCalibStep, 0));
+    if (centerBtn) centerBtn.addEventListener('click', () => {
+        if (activeCalibPlot !== 'ALL' && typeof focusOnPlot === 'function') {
+            focusOnPlot(activeCalibPlot);
+        }
+    });
+
+    // Save button
+    const saveBtn = document.getElementById('plotCalibSaveBtn');
+    if (saveBtn) {
+        saveBtn.addEventListener('click', () => {
+            try {
+                localStorage.setItem(PLOT_COORDS_STORAGE_KEY, JSON.stringify(plotCoordinates));
+                showToast('Plot coordinates saved! Changes will persist across reloads.');
+            } catch (e) {
+                console.warn('Failed to save plot coordinates to localStorage', e);
+            }
+        });
+    }
+
+    // Copy Config button
+    const copyBtn = document.getElementById('plotCalibCopyBtn');
+    if (copyBtn) {
+        copyBtn.addEventListener('click', () => {
+            const snippet = `const plotCoordinates = ${JSON.stringify(plotCoordinates, null, 4)};`;
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(snippet).then(() => {
+                    showToast('plotCoordinates code copied to clipboard!');
+                }).catch(() => {
+                    prompt('Copy your plot coordinates code:', snippet);
+                });
+            } else {
+                prompt('Copy your plot coordinates code:', snippet);
+            }
+        });
+    }
+
+    // Reset button
+    const resetBtn = document.getElementById('plotCalibResetBtn');
+    if (resetBtn) {
+        resetBtn.addEventListener('click', () => {
+            if (activeCalibPlot === 'ALL') {
+                if (confirm('Reset ALL plot coordinates back to original defaults?')) {
+                    localStorage.removeItem(PLOT_COORDS_STORAGE_KEY);
+                    Object.keys(DEFAULT_PLOT_COORDINATES).forEach(k => {
+                        plotCoordinates[k] = Object.assign({}, DEFAULT_PLOT_COORDINATES[k]);
+                    });
+                    renderPlotDots();
+                    renderLeafletPlotMarkers();
+                    updatePlotCalibratorUI();
+                    showToast('All plot coordinates reset to defaults.');
+                }
+            } else {
+                if (DEFAULT_PLOT_COORDINATES[activeCalibPlot]) {
+                    plotCoordinates[activeCalibPlot] = Object.assign({}, DEFAULT_PLOT_COORDINATES[activeCalibPlot]);
+                    try {
+                        localStorage.setItem(PLOT_COORDS_STORAGE_KEY, JSON.stringify(plotCoordinates));
+                    } catch(e) {}
+                    renderPlotDots();
+                    renderLeafletPlotMarkers();
+                    selectCalibPlot(activeCalibPlot);
+                    showToast(`Plot #${activeCalibPlot} reset to default position.`);
+                }
+            }
+        });
+    }
+
+    updatePlotCalibratorUI();
 }
 
