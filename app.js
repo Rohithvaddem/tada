@@ -199,7 +199,7 @@ function getPlotEffectiveStatus(item) {
 }
 
 const DB_VERSION_KEY = 'tada_db_version';
-const CURRENT_DB_VERSION = '1.6.0';
+const CURRENT_DB_VERSION = '1.7.0';
 
 // Invalidate stale localStorage cache whenever the bundled database version increments
 try {
@@ -208,6 +208,7 @@ try {
         if (savedVer !== CURRENT_DB_VERSION) {
             if (typeof localStorage.removeItem === 'function') {
                 localStorage.removeItem('aspire_avatar2_data');
+                localStorage.removeItem('tada_custom_plot_coords_v1');
             }
             if (typeof localStorage.setItem === 'function') {
                 localStorage.setItem(DB_VERSION_KEY, CURRENT_DB_VERSION);

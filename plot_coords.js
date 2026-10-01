@@ -8,12 +8,12 @@ const plotCoordinates = {
         "top": 123
     },
     "3": {
-        "left": 891,
-        "top": 158
+        "left": 898,
+        "top": 156
     },
     "4": {
-        "left": 891,
-        "top": 190
+        "left": 895,
+        "top": 188
     },
     "5": {
         "left": 890,
