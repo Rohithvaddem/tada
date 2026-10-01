@@ -232,32 +232,32 @@ function getStatusColor(status, plotNo, detail) {
     const s = String(status || '').toUpperCase().trim();
     const pNum = parseInt(plotNo, 10);
 
-    // Rule: Plot numbers 80 to 131 and plots 18, 23, 24, 25, 39 have brown colour while keeping status AVAILABLE
-    const brownExceptions = [18, 23, 24, 25, 39];
+    // Rule: Plot numbers 80 to 131 and plot 18 have brown colour while keeping status AVAILABLE
+    const brownExceptions = [18];
     if ((pNum >= 80 && pNum <= 131) || brownExceptions.includes(pNum)) {
         if (s === 'SOLD' || s === 'BOOKED') return '#1d4ed8'; // Dark Blue
         if (s === 'HOLD') return '#8b5cf6'; // Violet
         if (s === 'MORTGAGE') return '#f97316'; // Orange
-        if (s === 'REGISTERED') return '#ef4444'; // Red
-        return '#8b4513'; // Brown for plots 80-131 and 18, 23, 24, 25, 39
+        if (s === 'REGISTERED') return '#dc2626'; // Vibrant Red
+        return '#8b4513'; // Brown for plots 80-131 and 18
     }
     
-    // Explicit statuses take priority - Available is Green
+    // Explicit statuses take priority - Available is Darker Green
     if (s === 'AVAILABLE' || s === 'ASPIREALTY') {
-        return '#10b981'; // Green
+        return '#059669'; // Darker Green
     }
     if (s === 'SOLD' || s === 'BOOKED') return '#1d4ed8'; // Dark Blue
     if (s === 'HOLD') return '#8b5cf6'; // Violet
     if (s === 'MORTGAGE') return '#f97316'; // Orange
-    if (s === 'REGISTERED') return '#ef4444'; // Red
+    if (s === 'REGISTERED') return '#dc2626'; // Vibrant Red
 
     // Legacy statuses for backward compatibility
     if (s === 'EVERYONES' || s === "EVERYONE'S" || s === 'EVERYONE') return '#8b5cf6'; // Violet
     if (s === 'PREM KUMAR' || s === 'PREMKUMAR' || s === 'PREM') return '#f97316'; // Orange
-    if (s === 'SURESH') return '#ef4444'; // Red
+    if (s === 'SURESH') return '#dc2626'; // Vibrant Red
     if (s === 'SOUMITH') return '#1d4ed8'; // Dark Blue
 
-    return '#10b981'; // Green default
+    return '#059669'; // Darker Green default
 }
 
 function renderPlotDots() {
@@ -1236,11 +1236,11 @@ function updateStatistics() {
     if (statReg) statReg.textContent = counts['REGISTERED'];
     
     const legendConfig = [
-        { key: 'AVAILABLE', label: 'AVAILABLE', color: '#10b981' },
+        { key: 'AVAILABLE', label: 'AVAILABLE', color: '#059669' },
         { key: 'SOLD', label: 'SOLD', color: '#1d4ed8' },
         { key: 'HOLD', label: 'HOLD', color: '#8b5cf6' },
         { key: 'MORTGAGE', label: 'MORTGAGE', color: '#f97316' },
-        { key: 'REGISTERED', label: 'REGISTERED', color: '#ef4444' }
+        { key: 'REGISTERED', label: 'REGISTERED', color: '#dc2626' }
     ];
 
     // Render Sidebar Legend items

@@ -20,15 +20,15 @@
     --text-secondary: #8e9bb4;
     --border-color: rgba(255, 255, 255, 0.08);
     
-    --status-available: #10b981;
+    --status-available: #059669;
     --status-sold: #1d4ed8;
     --status-hold: #8b5cf6;
     --status-mortgage: #f97316;
-    --status-registered: #ef4444;
-    --status-aspirealty: #10b981;
+    --status-registered: #dc2626;
+    --status-aspirealty: #059669;
     
     --status-prem-kumar: #f97316;
-    --status-suresh: #ef4444;
+    --status-suresh: #dc2626;
     --status-soumith: #1d4ed8;
     
     --font-main: 'Plus Jakarta Sans', sans-serif;
