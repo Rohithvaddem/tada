@@ -5,7 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Tada Layout Digital View | Aspirealty</title>
-    <link rel="stylesheet" href="style.css?v=1.7.0">
+    <link rel="stylesheet" href="style.css?v=1.8.0">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 </head>
@@ -218,7 +218,7 @@
                         <div class="calib-section">
                             <div class="calib-section-title">
                                 <span><i class="fa-solid fa-rotate"></i> Rotation</span>
-                                <span class="calib-val-badge" id="calibRotationBadge">-5.70°</span>
+                                <span class="calib-val-badge" id="calibRotationBadge">-7.30°</span>
                             </div>
                             <div class="calib-stepper-row">
                                 <button class="calib-stepper-btn" data-rot="-5">-5°</button>
@@ -231,7 +231,7 @@
                                 <button class="calib-stepper-btn" data-rot="5">+5°</button>
                             </div>
                             <input type="range" class="calib-slider" id="calibRotationSlider" min="-180" max="180"
-                                step="0.05" value="-5.7">
+                                step="0.05" value="-7.3">
                         </div>
 
                         <!-- Scale / Stretch -->
@@ -267,24 +267,24 @@
                         <div class="calib-section">
                             <div class="calib-section-title">
                                 <span><i class="fa-solid fa-circle-half-stroke"></i> Layout Overlay Opacity</span>
-                                <span class="calib-val-badge" id="calibOpacityBadge">85%</span>
+                                <span class="calib-val-badge" id="calibOpacityBadge">100%</span>
                             </div>
                             <input type="range" class="calib-slider" id="calibOpacitySlider" min="10" max="100" step="5"
-                                value="85">
+                                value="100">
                         </div>
 
                         <!-- Live Coordinates Readout -->
                         <div class="calib-coords-box" id="calibCoordsBox">
                             <div class="calib-coord-line"><span>North:</span> <strong
-                                    id="calibReadoutNorth">13.60363526</strong></div>
+                                     id="calibReadoutNorth">13.60368416</strong></div>
                             <div class="calib-coord-line"><span>South:</span> <strong
-                                    id="calibReadoutSouth">13.60035208</strong></div>
+                                    id="calibReadoutSouth">13.60030319</strong></div>
                             <div class="calib-coord-line"><span>East:</span> <strong
-                                    id="calibReadoutEast">80.01266739</strong></div>
+                                    id="calibReadoutEast">80.01270849</strong></div>
                             <div class="calib-coord-line"><span>West:</span> <strong
-                                    id="calibReadoutWest">80.00837141</strong></div>
+                                    id="calibReadoutWest">80.00828411</strong></div>
                             <div class="calib-coord-line"><span>Rotation:</span> <strong
-                                    id="calibReadoutRot">-5.70°</strong></div>
+                                    id="calibReadoutRot">-7.30°</strong></div>
                         </div>
 
                         <!-- Actions -->
@@ -450,9 +450,9 @@
 
     <!-- Scripts -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script src="plot_coords.js?v=1.7.0"></script>
-    <script src="data.js?v=1.7.0"></script>
-    <script src="app.js?v=1.7.0"></script>
+    <script src="plot_coords.js?v=1.8.0"></script>
+    <script src="data.js?v=1.8.0"></script>
+    <script src="app.js?v=1.8.0"></script>
 </body>
 
 </html>

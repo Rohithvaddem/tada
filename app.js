@@ -58,15 +58,15 @@ try {
     console.warn('Could not read saved plot coordinates', e);
 }
 
-const CALIBRATION_KEY = 'tada_kmz_calibration_v3';
+const CALIBRATION_KEY = 'tada_kmz_calibration_v4';
 
 const DEFAULT_CALIBRATION = {
-    south: 13.60035208141731,
-    north: 13.60363525972711,
-    west: 80.00837141302408,
-    east: 80.01266739092794,
-    rotation: -5.70,
-    opacity: 0.85
+    south: 13.60030318512068,
+    north: 13.60368415602374,
+    west: 80.00828410607524,
+    east: 80.01270848621097,
+    rotation: -7.30,
+    opacity: 1.00
 };
 
 let currentCalibration = Object.assign({}, DEFAULT_CALIBRATION);
@@ -199,7 +199,7 @@ function getPlotEffectiveStatus(item) {
 }
 
 const DB_VERSION_KEY = 'tada_db_version';
-const CURRENT_DB_VERSION = '1.7.0';
+const CURRENT_DB_VERSION = '1.8.0';
 
 // Invalidate stale localStorage cache whenever the bundled database version increments
 try {
@@ -209,6 +209,8 @@ try {
             if (typeof localStorage.removeItem === 'function') {
                 localStorage.removeItem('aspire_avatar2_data');
                 localStorage.removeItem('tada_custom_plot_coords_v1');
+                localStorage.removeItem('tada_kmz_calibration_v3');
+                localStorage.removeItem('tada_kmz_calibration');
             }
             if (typeof localStorage.setItem === 'function') {
                 localStorage.setItem(DB_VERSION_KEY, CURRENT_DB_VERSION);
