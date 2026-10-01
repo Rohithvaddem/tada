@@ -175,7 +175,7 @@ function getPlotEffectiveStatus(item) {
 }
 
 const DB_VERSION_KEY = 'tada_db_version';
-const CURRENT_DB_VERSION = '1.4.0';
+const CURRENT_DB_VERSION = '1.5.0';
 
 // Invalidate stale localStorage cache whenever the bundled database version increments
 try {
@@ -258,7 +258,7 @@ function getStatusColor(status, plotNo, detail) {
         if (s === 'SOLD' || s === 'BOOKED') return '#1d4ed8'; // Dark Blue
         if (s === 'HOLD') return '#8b5cf6'; // Violet
         if (s === 'MORTGAGE') return '#f97316'; // Orange
-        if (s === 'REGISTERED') return '#e60000'; // Pure Saturated Red
+        if (s === 'REGISTERED') return '#ff0000'; // Pure Vivid Red
         return '#8b4513'; // Brown for plots 80-131 and 18
     }
     
@@ -269,12 +269,12 @@ function getStatusColor(status, plotNo, detail) {
     if (s === 'SOLD' || s === 'BOOKED') return '#1d4ed8'; // Dark Blue
     if (s === 'HOLD') return '#8b5cf6'; // Violet
     if (s === 'MORTGAGE') return '#f97316'; // Orange
-    if (s === 'REGISTERED') return '#e60000'; // Pure Saturated Red
+    if (s === 'REGISTERED') return '#ff0000'; // Pure Vivid Red
 
     // Legacy statuses for backward compatibility
     if (s === 'EVERYONES' || s === "EVERYONE'S" || s === 'EVERYONE') return '#8b5cf6'; // Violet
     if (s === 'PREM KUMAR' || s === 'PREMKUMAR' || s === 'PREM') return '#f97316'; // Orange
-    if (s === 'SURESH') return '#e60000'; // Pure Saturated Red
+    if (s === 'SURESH') return '#ff0000'; // Pure Vivid Red
     if (s === 'SOUMITH') return '#1d4ed8'; // Dark Blue
 
     return '#059669'; // Darker Green default
@@ -1260,7 +1260,7 @@ function updateStatistics() {
         { key: 'SOLD', label: 'SOLD', color: '#1d4ed8' },
         { key: 'HOLD', label: 'HOLD', color: '#8b5cf6' },
         { key: 'MORTGAGE', label: 'MORTGAGE', color: '#f97316' },
-        { key: 'REGISTERED', label: 'REGISTERED', color: '#e60000' }
+        { key: 'REGISTERED', label: 'REGISTERED', color: '#ff0000' }
     ];
 
     // Render Sidebar Legend items

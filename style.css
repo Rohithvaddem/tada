@@ -24,11 +24,11 @@
     --status-sold: #1d4ed8;
     --status-hold: #8b5cf6;
     --status-mortgage: #f97316;
-    --status-registered: #e60000;
+    --status-registered: #ff0000;
     --status-aspirealty: #059669;
     
     --status-prem-kumar: #f97316;
-    --status-suresh: #e60000;
+    --status-suresh: #ff0000;
     --status-soumith: #1d4ed8;
     
     --font-main: 'Plus Jakarta Sans', sans-serif;
@@ -742,10 +742,18 @@ body {
     50% {
         opacity: 0.4;
     }
-    100% {
-        transform: translate(-50%, -50%) scale(2.4);
-        opacity: 0;
-    }
+}
+
+/* Pure Vivid Red styling & glow for Registered Plots */
+.plot-dot[data-status="REGISTERED"],
+.leaflet-plot-dot-item[data-status="REGISTERED"] {
+    background-color: var(--status-registered, #ff0000) !important;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.7), 0 0 8px rgba(255, 0, 0, 0.85) !important;
+}
+
+.plot-dot[data-status="REGISTERED"]:hover,
+.leaflet-plot-dot-item[data-status="REGISTERED"]:hover {
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.8), 0 0 16px rgba(255, 0, 0, 1) !important;
 }
 
 /* Highlighting searched plot */
