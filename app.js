@@ -174,10 +174,30 @@ function getPlotEffectiveStatus(item) {
     return 'AVAILABLE';
 }
 
+const DB_VERSION_KEY = 'tada_db_version';
+const CURRENT_DB_VERSION = '1.3.0';
+
+// Invalidate stale localStorage cache whenever the bundled database version increments
+try {
+    if (typeof localStorage !== 'undefined') {
+        const savedVer = localStorage.getItem(DB_VERSION_KEY);
+        if (savedVer !== CURRENT_DB_VERSION) {
+            if (typeof localStorage.removeItem === 'function') {
+                localStorage.removeItem('aspire_avatar2_data');
+            }
+            if (typeof localStorage.setItem === 'function') {
+                localStorage.setItem(DB_VERSION_KEY, CURRENT_DB_VERSION);
+            }
+        }
+    }
+} catch (e) {
+    console.warn('Could not check DB version', e);
+}
+
 // Initialization
 function initApp() {
-    // Check local storage for custom database updates
-    const localData = localStorage.getItem('aspire_avatar2_data');
+    // Check local storage for custom database updates (only if matching current version)
+    const localData = typeof localStorage !== 'undefined' && localStorage.getItem('aspire_avatar2_data');
     if (localData) {
         try {
             plotData = normalizePlotData(JSON.parse(localData));
