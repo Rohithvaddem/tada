@@ -837,103 +837,111 @@
         streetLightsGroup = new THREE.Group();
         streetLightDownwardLights.length = 0;
 
-        // Shared geometries for performance
-        streetLightGeos.base = new THREE.CylinderGeometry(0.24, 0.32, 0.28, 8);
-        streetLightGeos.pole = new THREE.CylinderGeometry(0.09, 0.13, 4.2, 8);
-        streetLightGeos.arm = new THREE.CylinderGeometry(0.065, 0.065, 1.4, 8);
-        streetLightGeos.head = new THREE.BoxGeometry(0.42, 0.14, 0.85);
-        streetLightGeos.lens = new THREE.PlaneGeometry(0.34, 0.72);
+        // Shared geometries for high-end architectural street lights
+        streetLightGeos.base = new THREE.CylinderGeometry(0.20, 0.26, 0.18, 12);
+        streetLightGeos.pole = new THREE.CylinderGeometry(0.065, 0.10, 4.0, 12);
+
+        // Elegant curved gooseneck cantilever arm sweeping out over the road
+        const armCurve = new THREE.CatmullRomCurve3([
+            new THREE.Vector3(0, 3.88, 0),
+            new THREE.Vector3(0, 4.45, 0.22),
+            new THREE.Vector3(0, 4.60, 0.70),
+            new THREE.Vector3(0, 4.45, 1.25)
+        ]);
+        streetLightGeos.arm = new THREE.TubeGeometry(armCurve, 14, 0.045, 8, false);
+
+        // Modern aerodynamic teardrop luminaire head
+        streetLightGeos.head = new THREE.BoxGeometry(0.34, 0.10, 0.80);
+        streetLightGeos.lens = new THREE.PlaneGeometry(0.26, 0.62);
 
         // Shared materials
-        streetLightMats.base = new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.9 });
-        streetLightMats.pole = new THREE.MeshStandardMaterial({ color: 0x1e293b, metalness: 0.8, roughness: 0.25 });
+        streetLightMats.base = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.9 });
+        streetLightMats.pole = new THREE.MeshStandardMaterial({ color: 0x1e293b, metalness: 0.85, roughness: 0.22 });
         streetLightMats.head = new THREE.MeshStandardMaterial({ color: 0x0f172a, metalness: 0.9, roughness: 0.15 });
         streetLightMats.lens = new THREE.MeshStandardMaterial({
             color: 0xffffff,
-            emissive: 0xfef08a,
-            emissiveIntensity: (currentLightingMode === 'night') ? 3.0 : (currentLightingMode === 'sunset' ? 2.0 : 0.85),
+            emissive: 0xfff8e7,
+            emissiveIntensity: (currentLightingMode === 'night') ? 3.2 : (currentLightingMode === 'sunset' ? 2.2 : 1.2),
             roughness: 0.1
         });
 
         function createSingleStreetLight(armAngle) {
             const lightObj = new THREE.Group();
 
-            // Concrete foundation plinth
+            // 1. Concrete foundation collar at curb
             const baseMesh = new THREE.Mesh(streetLightGeos.base, streetLightMats.base);
-            baseMesh.position.y = 0.14;
+            baseMesh.position.y = 0.09;
             lightObj.add(baseMesh);
 
-            // Steel vertical pole
+            // 2. Vertical tapered dark metallic pole
             const poleMesh = new THREE.Mesh(streetLightGeos.pole, streetLightMats.pole);
-            poleMesh.position.y = 2.18;
+            poleMesh.position.y = 2.08;
             lightObj.add(poleMesh);
 
-            // Curved cantilever arm extending out over road
+            // 3. Arched Gooseneck Cantilever Arm facing the road
             const armPivot = new THREE.Group();
-            armPivot.position.set(0, 4.15, 0);
             armPivot.rotation.y = armAngle || 0;
 
             const armMesh = new THREE.Mesh(streetLightGeos.arm, streetLightMats.pole);
-            armMesh.position.set(0, 0.22, 0.7);
-            armMesh.rotation.x = Math.PI / 14;
             armPivot.add(armMesh);
 
-            // Modern luminaire head
+            // 4. Modern Luminaire Head (positioned at end of arched arm, slightly tilted down towards road)
             const headMesh = new THREE.Mesh(streetLightGeos.head, streetLightMats.head);
-            headMesh.position.set(0, 0.36, 1.35);
+            headMesh.position.set(0, 4.40, 1.35);
+            headMesh.rotation.x = Math.PI / 16; // 11 degree downward tilt facing road
             armPivot.add(headMesh);
 
-            // LED downward light face
+            // 5. High-Efficacy LED Light Panel
             const lensMesh = new THREE.Mesh(streetLightGeos.lens, streetLightMats.lens);
-            lensMesh.rotation.x = Math.PI / 2;
-            lensMesh.position.set(0, 0.28, 1.35);
+            lensMesh.rotation.x = Math.PI / 2 + Math.PI / 16;
+            lensMesh.position.set(0, 4.34, 1.35);
             armPivot.add(lensMesh);
 
             lightObj.add(armPivot);
             return lightObj;
         }
 
-        // Exactly 2 architectural street lights per road, strictly on black road tarmac (10 roads = 20 lights)
+        // Exactly 2 architectural street lights per road strictly on road curbs, facing inward over the road (10 roads = 20 lights)
         const streetLightPositions = [
-            // Road 1: Central 40' Main Road (Z = -10.7)
-            { x: -26.60, z: -10.66, armAngle: 0 },
-            { x: 41.48,  z: -10.78, armAngle: 0 },
+            // Road 1: Central 40' Main Road (Center Z = -10.7)
+            { x: -25.0, z: -12.9, armAngle: 0 },         // North curb, arm points South (+Z) over road
+            { x: 42.0,  z: -8.5,  armAngle: Math.PI },   // South curb, arm points North (-Z) over road
 
-            // Road 2: Southern 40' Road (Z = 66.5)
-            { x: 6.56,  z: 66.45, armAngle: 0 },
-            { x: 48.40, z: 66.45, armAngle: 0 },
+            // Road 2: Southern 40' Road (Center Z = 66.5)
+            { x: 5.0,  z: 64.8, armAngle: 0 },           // North curb, arm points South (+Z) over road
+            { x: 48.0, z: 67.0, armAngle: Math.PI },     // South curb, arm points North (-Z) over road
 
-            // Road 3: Avenue 1 (X = -67.0)
-            { x: -67.03, z: -22.62, armAngle: Math.PI / 2 },
-            { x: -67.03, z: 12.54,  armAngle: Math.PI / 2 },
+            // Road 3: Avenue 1 (Center X = -67.0)
+            { x: -68.5, z: -30.0, armAngle: Math.PI / 2 },  // West curb, arm points East (+X) over road
+            { x: -65.5, z: 15.0,  armAngle: -Math.PI / 2 }, // East curb, arm points West (-X) over road
 
-            // Road 4: Avenue 2 (X = -45.0)
-            { x: -45.00, z: -22.62, armAngle: Math.PI / 2 },
-            { x: -45.00, z: 12.30,  armAngle: Math.PI / 2 },
+            // Road 4: Avenue 2 (Center X = -45.0)
+            { x: -46.5, z: -30.0, armAngle: Math.PI / 2 },  // West curb, arm points East (+X) over road
+            { x: -43.5, z: 15.0,  armAngle: -Math.PI / 2 }, // East curb, arm points West (-X) over road
 
-            // Road 5: Avenue 3 (X = -21.8)
-            { x: -21.91, z: -22.62, armAngle: Math.PI / 2 },
-            { x: -21.80, z: 12.54,  armAngle: Math.PI / 2 },
+            // Road 5: Avenue 3 (Center X = -21.8)
+            { x: -23.2, z: -30.0, armAngle: Math.PI / 2 },  // West curb, arm points East (+X) over road
+            { x: -20.4, z: 15.0,  armAngle: -Math.PI / 2 }, // East curb, arm points West (-X) over road
 
-            // Road 6: Avenue 4 (Central Avenue, X = 0.35)
-            { x: 0.35, z: -22.62, armAngle: Math.PI / 2 },
-            { x: 0.35, z: 12.54,  armAngle: Math.PI / 2 },
+            // Road 6: Avenue 4 (Central Avenue, Center X = 0.35)
+            { x: -0.4, z: -30.0, armAngle: Math.PI / 2 },   // West curb, arm points East (+X) over road
+            { x: 1.3,  z: 15.0,  armAngle: -Math.PI / 2 },  // East curb, arm points West (-X) over road
 
-            // Road 7: Avenue 5 (X = 23.5)
-            { x: 23.44, z: -22.62, armAngle: Math.PI / 2 },
-            { x: 23.44, z: 12.54,  armAngle: Math.PI / 2 },
+            // Road 7: Avenue 5 (Center X = 23.5)
+            { x: 22.2, z: -30.0, armAngle: Math.PI / 2 },   // West curb, arm points East (+X) over road
+            { x: 23.7, z: 15.0,  armAngle: -Math.PI / 2 },  // East curb, arm points West (-X) over road
 
-            // Road 8: Avenue 6 (X = 47.0)
-            { x: 46.88, z: -22.62, armAngle: Math.PI / 2 },
-            { x: 46.99, z: 12.54,  armAngle: Math.PI / 2 },
+            // Road 8: Avenue 6 (Center X = 47.0)
+            { x: 45.6, z: -30.0, armAngle: Math.PI / 2 },   // West curb, arm points East (+X) over road
+            { x: 48.4, z: 15.0,  armAngle: -Math.PI / 2 },  // East curb, arm points West (-X) over road
 
-            // Road 9: Avenue 7 (X = 70.0)
-            { x: 69.96, z: -36.68, armAngle: Math.PI / 2 },
-            { x: 69.96, z: -23.44, armAngle: Math.PI / 2 },
+            // Road 9: Avenue 7 (Center X = 70.0)
+            { x: 68.6, z: -38.0, armAngle: Math.PI / 2 },   // West curb, arm points East (+X) over road
+            { x: 71.4, z: -22.0, armAngle: -Math.PI / 2 },  // East curb, arm points West (-X) over road
 
-            // Road 10: Eastern 60' Road
-            { x: 100.43, z: -36.68, armAngle: Math.PI / 2 },
-            { x: 99.61,  z: -23.44, armAngle: Math.PI / 2 }
+            // Road 10: Eastern 60' Road (Center X = 98.0)
+            { x: 96.7, z: -38.0, armAngle: Math.PI / 2 },   // West curb, arm points East (+X) over road
+            { x: 99.0, z: -30.0, armAngle: -Math.PI / 2 }   // East curb, arm points West (-X) over road
         ];
 
         // Instantiate street lights
@@ -945,9 +953,9 @@
 
         // Strategic downward road illumination point lights pool (smooth, lightweight)
         const downwardPositions = [
-            [-26.6, 4.2, -10.7], [41.5, 4.2, -10.7],
-            [6.6, 4.2, 66.5], [48.4, 4.2, 66.5],
-            [-45.0, 4.2, 0.0], [0.35, 4.2, 0.0], [23.4, 4.2, 0.0], [46.9, 4.2, 0.0]
+            [-25.0, 4.2, -10.7], [42.0, 4.2, -10.7],
+            [5.0, 4.2, 66.5], [48.0, 4.2, 66.5],
+            [-45.0, 4.2, 0.0], [0.35, 4.2, 0.0], [23.5, 4.2, 0.0], [47.0, 4.2, 0.0]
         ];
 
         const initialDlIntensity = (currentLightingMode === 'night') ? 1.6 : (currentLightingMode === 'sunset' ? 0.6 : 0.0);
@@ -959,7 +967,7 @@
         });
 
         layoutWorldGroup.add(streetLightsGroup);
-        console.log(`✅ Placed exactly 2 street lights per road (${streetLightPositions.length} lights total) strictly on black roads.`);
+        console.log(`✅ Placed exactly 2 architectural street lights per road on curbs, facing directly over the road.`);
     }
 
     /**
