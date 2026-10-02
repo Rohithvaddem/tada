@@ -623,15 +623,33 @@
             const sizeFactor = Math.min(Math.max(areaSqYd / 200, 0.85), 2.2);
             const pWidth = 3.6 * sizeFactor;
             const pDepth = 2.8 * sizeFactor;
-            const pHeight = BASE_ELEVATION;
+
+            // 3D House Dimensions
+            const houseW = pWidth * 0.72;
+            const houseD = pDepth * 0.68;
+            const houseH = 1.35;
+            const plinthH = 0.16;
+            const roofH = 1.05;
 
             const plotGroup = new THREE.Group();
             plotGroup.position.set(posX, 0, posZ);
 
-            const parcelGeo = new THREE.BoxGeometry(pWidth, pHeight, pDepth);
-            const parcelMat = new THREE.MeshStandardMaterial({
+            // 1. Plot Foundation Plinth / Base
+            const plinthGeo = new THREE.BoxGeometry(pWidth * 0.94, plinthH, pDepth * 0.94);
+            const plinthMat = new THREE.MeshStandardMaterial({
+                color: 0x334155,
+                roughness: 0.85
+            });
+            const plinthMesh = new THREE.Mesh(plinthGeo, plinthMat);
+            plinthMesh.position.y = plinthH / 2 + 0.08;
+            plinthMesh.receiveShadow = true;
+            plotGroup.add(plinthMesh);
+
+            // 2. Main House Body (Walls colored in plot status: Green for Available, Red for Registered)
+            const houseGeo = new THREE.BoxGeometry(houseW, houseH, houseD);
+            const houseMat = new THREE.MeshStandardMaterial({
                 color: colorThree,
-                roughness: 0.55,
+                roughness: 0.52,
                 metalness: 0.05,
                 emissive: colorThree,
                 emissiveIntensity: 0.14,
@@ -639,39 +657,101 @@
                 opacity: 0.96,
                 depthWrite: true
             });
+            const houseMesh = new THREE.Mesh(houseGeo, houseMat);
+            const houseDefaultY = plinthH + houseH / 2 + 0.08;
+            houseMesh.position.y = houseDefaultY;
+            houseMesh.castShadow = true;
+            houseMesh.receiveShadow = true;
+            houseMesh.renderOrder = 20;
 
-            const parcelMesh = new THREE.Mesh(parcelGeo, parcelMat);
-            parcelMesh.position.y = pHeight / 2 + 0.08;
-            parcelMesh.castShadow = true;
-            parcelMesh.receiveShadow = true;
-            parcelMesh.renderOrder = 20;
+            // 3. Pitched Hip Roof (Richer, darker architectural shade of status color)
+            const roofColor = colorThree.clone().multiplyScalar(0.72);
+            const roofRadius = Math.sqrt(Math.pow(houseW * 0.58, 2) + Math.pow(houseD * 0.58, 2));
+            const roofGeo = new THREE.ConeGeometry(roofRadius, roofH, 4);
+            roofGeo.rotateY(Math.PI / 4); // Align 4 slopes with 4 house walls
+            const roofMat = new THREE.MeshStandardMaterial({
+                color: roofColor,
+                roughness: 0.45,
+                metalness: 0.05,
+                emissive: roofColor,
+                emissiveIntensity: 0.08,
+                transparent: true,
+                opacity: 0.96,
+                depthWrite: true
+            });
+            const roofMesh = new THREE.Mesh(roofGeo, roofMat);
+            roofMesh.position.set(0, houseH / 2 + roofH / 2, 0);
+            roofMesh.castShadow = true;
+            roofMesh.renderOrder = 21;
+            houseMesh.add(roofMesh);
 
-            parcelMesh.userData = {
+            // 4. Architectural Front Entrance Door (+Z face)
+            const doorGeo = new THREE.BoxGeometry(houseW * 0.24, 0.75, 0.06);
+            const doorMat = new THREE.MeshStandardMaterial({
+                color: 0x1e293b,
+                roughness: 0.6
+            });
+            const doorMesh = new THREE.Mesh(doorGeo, doorMat);
+            doorMesh.position.set(0, -houseH / 2 + 0.38, houseD / 2 + 0.03);
+            houseMesh.add(doorMesh);
+
+            // 5. Windows with soft reflective architectural glow
+            const winGeo = new THREE.BoxGeometry(houseW * 0.20, 0.42, 0.05);
+            const winMat = new THREE.MeshStandardMaterial({
+                color: 0xe0f2fe,
+                roughness: 0.2,
+                metalness: 0.6,
+                emissive: 0x38bdf8,
+                emissiveIntensity: 0.25
+            });
+            const winL = new THREE.Mesh(winGeo, winMat);
+            winL.position.set(-houseW * 0.27, -0.05, houseD / 2 + 0.03);
+            houseMesh.add(winL);
+
+            const winR = new THREE.Mesh(winGeo, winMat);
+            winR.position.set(houseW * 0.27, -0.05, houseD / 2 + 0.03);
+            houseMesh.add(winR);
+
+            // 6. Chimney detail
+            const chimneyGeo = new THREE.BoxGeometry(0.32, 0.60, 0.32);
+            const chimneyMat = new THREE.MeshStandardMaterial({ color: 0x475569, roughness: 0.7 });
+            const chimney = new THREE.Mesh(chimneyGeo, chimneyMat);
+            chimney.position.set(houseW * 0.24, houseH / 2 + roofH * 0.52, -houseD * 0.15);
+            chimney.castShadow = true;
+            houseMesh.add(chimney);
+
+            // 7. Architectural Wall Edge Outlines
+            const edgesGeo = new THREE.EdgesGeometry(houseGeo);
+            const edgesMat = new THREE.LineBasicMaterial({
+                color: 0x0f172a,
+                transparent: true,
+                opacity: 0.35
+            });
+            const wireframe = new THREE.LineSegments(edgesGeo, edgesMat);
+            wireframe.renderOrder = 22;
+            houseMesh.add(wireframe);
+
+            // UserData for Raycasting & Tooltips
+            houseMesh.userData = {
                 plotNo,
                 detail,
                 status,
                 baseColorHex: colorHex,
                 baseColor: colorThree.clone(),
-                defaultY: pHeight / 2 + 0.08,
+                roofColor: roofColor.clone(),
+                roofMesh: roofMesh,
+                defaultY: houseDefaultY,
                 pWidth,
                 pDepth,
-                pHeight,
+                pHeight: plinthH + houseH + roofH,
                 parentGroup: plotGroup
             };
+            roofMesh.userData = { plotNo, parentMesh: houseMesh };
 
-            plotGroup.add(parcelMesh);
-            plotMeshes[plotNo] = parcelMesh;
+            plotGroup.add(houseMesh);
+            plotMeshes[plotNo] = houseMesh;
 
-            const edgesGeo = new THREE.EdgesGeometry(parcelGeo);
-            const edgesMat = new THREE.LineBasicMaterial({
-                color: 0x064e3b, // Dark rich outline for contrast instead of washed-out white
-                transparent: true,
-                opacity: 0.55
-            });
-            const wireframe = new THREE.LineSegments(edgesGeo, edgesMat);
-            wireframe.renderOrder = 21;
-            parcelMesh.add(wireframe);
-
+            // Plot Survey Corner Stones
             const hw = pWidth / 2;
             const hd = pDepth / 2;
             const corners = [
@@ -679,12 +759,13 @@
             ];
             corners.forEach(([cx, cz]) => {
                 const stone = new THREE.Mesh(cornerStoneGeo, cornerStoneMat);
-                stone.position.set(cx, pHeight + 0.2, cz);
+                stone.position.set(cx, 0.25, cz);
                 plotGroup.add(stone);
             });
 
+            // Plot Number Sprite Floating Above Roof Peak
             const labelSprite = createPlotNumberSprite(plotNo, colorHex);
-            labelSprite.position.set(0, pHeight + 1.88, 0);
+            labelSprite.position.set(0, plinthH + houseH + roofH + 1.25, 0);
             plotGroup.add(labelSprite);
             plotLabels[plotNo] = labelSprite;
 
@@ -739,26 +820,35 @@
 
             raycaster.setFromCamera(mouse, camera);
             const meshArray = Object.values(plotMeshes);
-            const intersects = raycaster.intersectObjects(meshArray, false);
+            const intersects = raycaster.intersectObjects(meshArray, true);
 
             if (intersects.length > 0) {
-                const hit = intersects[0].object;
-                container.style.cursor = 'pointer';
+                let hit = intersects[0].object;
+                while (hit && !hit.userData.plotNo && hit.parent) {
+                    hit = hit.parent;
+                }
+                if (hit && hit.userData.parentMesh) {
+                    hit = hit.userData.parentMesh;
+                }
+                if (hit && hit.userData.plotNo) {
+                    container.style.cursor = 'pointer';
 
-                if (hoveredPlotMesh !== hit) {
-                    unhoverPlot(hoveredPlotMesh);
-                    hoverPlot(hit);
-                    hoveredPlotMesh = hit;
+                    if (hoveredPlotMesh !== hit) {
+                        unhoverPlot(hoveredPlotMesh);
+                        hoverPlot(hit);
+                        hoveredPlotMesh = hit;
+                    }
+                    show3DTooltip(hit.userData, coords.clientX, coords.clientY);
+                    return;
                 }
-                show3DTooltip(hit.userData, coords.clientX, coords.clientY);
-            } else {
-                container.style.cursor = 'grab';
-                if (hoveredPlotMesh) {
-                    unhoverPlot(hoveredPlotMesh);
-                    hoveredPlotMesh = null;
-                }
-                hide3DTooltip();
             }
+
+            container.style.cursor = 'grab';
+            if (hoveredPlotMesh) {
+                unhoverPlot(hoveredPlotMesh);
+                hoveredPlotMesh = null;
+            }
+            hide3DTooltip();
         });
 
         container.addEventListener('mouseleave', () => {
@@ -776,11 +866,19 @@
 
             raycaster.setFromCamera(mouse, camera);
             const meshArray = Object.values(plotMeshes);
-            const intersects = raycaster.intersectObjects(meshArray, false);
+            const intersects = raycaster.intersectObjects(meshArray, true);
 
             if (intersects.length > 0) {
-                const hit = intersects[0].object;
-                selectPlot(hit.userData.plotNo, true);
+                let hit = intersects[0].object;
+                while (hit && !hit.userData.plotNo && hit.parent) {
+                    hit = hit.parent;
+                }
+                if (hit && hit.userData.parentMesh) {
+                    hit = hit.userData.parentMesh;
+                }
+                if (hit && hit.userData.plotNo) {
+                    selectPlot(hit.userData.plotNo, true);
+                }
             }
         });
 
@@ -809,9 +907,12 @@
      */
     function hoverPlot(mesh) {
         if (!mesh) return;
-        mesh.position.y = mesh.userData.defaultY + 0.6;
+        mesh.position.y = mesh.userData.defaultY + 0.45;
         if (mesh.material) {
-            mesh.material.emissiveIntensity = 0.45;
+            mesh.material.emissiveIntensity = 0.40;
+        }
+        if (mesh.userData.roofMesh && mesh.userData.roofMesh.material) {
+            mesh.userData.roofMesh.material.emissiveIntensity = 0.28;
         }
     }
 
@@ -820,6 +921,9 @@
         mesh.position.y = mesh.userData.defaultY;
         if (mesh.material) {
             mesh.material.emissiveIntensity = (currentLightingMode === 'night') ? 0.55 : 0.14;
+        }
+        if (mesh.userData.roofMesh && mesh.userData.roofMesh.material) {
+            mesh.userData.roofMesh.material.emissiveIntensity = (currentLightingMode === 'night') ? 0.45 : 0.08;
         }
     }
 
@@ -895,13 +999,21 @@
             }
 
             if (match) {
-                mesh.material.opacity = 0.95;
+                mesh.material.opacity = 0.96;
                 mesh.material.color.copy(mesh.userData.baseColor);
+                if (mesh.userData.roofMesh && mesh.userData.roofMesh.material) {
+                    mesh.userData.roofMesh.material.opacity = 0.96;
+                    mesh.userData.roofMesh.material.color.copy(mesh.userData.roofColor);
+                }
                 if (label) label.visible = true;
                 if (group) group.visible = true;
             } else {
                 mesh.material.opacity = 0.18;
                 mesh.material.color.set(0x334155);
+                if (mesh.userData.roofMesh && mesh.userData.roofMesh.material) {
+                    mesh.userData.roofMesh.material.opacity = 0.18;
+                    mesh.userData.roofMesh.material.color.set(0x1e293b);
+                }
                 if (label) label.visible = false;
             }
         });
@@ -1135,12 +1247,17 @@
      */
     function toggleXRayMode() {
         isXRayMode = !isXRayMode;
-        const targetOpacity = isXRayMode ? 0.38 : 0.95;
+        const targetOpacity = isXRayMode ? 0.35 : 0.96;
         Object.values(plotMeshes).forEach(mesh => {
             if (mesh && mesh.material) {
                 mesh.material.opacity = targetOpacity;
                 mesh.material.transparent = true;
                 mesh.material.needsUpdate = true;
+                if (mesh.userData.roofMesh && mesh.userData.roofMesh.material) {
+                    mesh.userData.roofMesh.material.opacity = targetOpacity;
+                    mesh.userData.roofMesh.material.transparent = true;
+                    mesh.userData.roofMesh.material.needsUpdate = true;
+                }
             }
         });
         const btn = document.getElementById('threeXRayBtn');
