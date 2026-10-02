@@ -205,7 +205,7 @@ const plotDataRawTada = [
     },
     {
         "plot_no": "18",
-        "plot_size": "19",
+        "plot_size": "N/A",
         "facing": "",
         "plot_status": "AVAILABLE",
         "customer_name": "",
@@ -949,7 +949,7 @@ const plotDataRawTada = [
     },
     {
         "plot_no": "80",
-        "plot_size": "200",
+        "plot_size": "N/A",
         "facing": "East",
         "plot_status": "AVAILABLE",
         "customer_name": "",
@@ -961,7 +961,7 @@ const plotDataRawTada = [
     },
     {
         "plot_no": "81",
-        "plot_size": "200",
+        "plot_size": "N/A",
         "facing": "West",
         "plot_status": "AVAILABLE",
         "customer_name": "",
@@ -973,7 +973,7 @@ const plotDataRawTada = [
     },
     {
         "plot_no": "82",
-        "plot_size": "200",
+        "plot_size": "N/A",
         "facing": "East",
         "plot_status": "AVAILABLE",
         "customer_name": "",
@@ -985,7 +985,7 @@ const plotDataRawTada = [
     },
     {
         "plot_no": "83",
-        "plot_size": "200",
+        "plot_size": "N/A",
         "facing": "West",
         "plot_status": "AVAILABLE",
         "customer_name": "",
@@ -997,7 +997,7 @@ const plotDataRawTada = [
     },
     {
         "plot_no": "84",
-        "plot_size": "200",
+        "plot_size": "N/A",
         "facing": "East",
         "plot_status": "AVAILABLE",
         "customer_name": "",
@@ -1009,7 +1009,7 @@ const plotDataRawTada = [
     },
     {
         "plot_no": "85",
-        "plot_size": "200",
+        "plot_size": "N/A",
         "facing": "West",
         "plot_status": "AVAILABLE",
         "customer_name": "",
@@ -1021,7 +1021,7 @@ const plotDataRawTada = [
     },
     {
         "plot_no": "86",
-        "plot_size": "200",
+        "plot_size": "N/A",
         "facing": "East",
         "plot_status": "AVAILABLE",
         "customer_name": "",
@@ -1033,7 +1033,7 @@ const plotDataRawTada = [
     },
     {
         "plot_no": "87",
-        "plot_size": "200",
+        "plot_size": "N/A",
         "facing": "West",
         "plot_status": "AVAILABLE",
         "customer_name": "",
@@ -1045,7 +1045,7 @@ const plotDataRawTada = [
     },
     {
         "plot_no": "88",
-        "plot_size": "200",
+        "plot_size": "N/A",
         "facing": "East",
         "plot_status": "AVAILABLE",
         "customer_name": "",
@@ -1057,7 +1057,7 @@ const plotDataRawTada = [
     },
     {
         "plot_no": "89",
-        "plot_size": "200",
+        "plot_size": "N/A",
         "facing": "West",
         "plot_status": "AVAILABLE",
         "customer_name": "",
@@ -1069,7 +1069,7 @@ const plotDataRawTada = [
     },
     {
         "plot_no": "90",
-        "plot_size": "200",
+        "plot_size": "N/A",
         "facing": "East",
         "plot_status": "AVAILABLE",
         "customer_name": "",
@@ -1081,7 +1081,7 @@ const plotDataRawTada = [
     },
     {
         "plot_no": "91",
-        "plot_size": "200",
+        "plot_size": "N/A",
         "facing": "West",
         "plot_status": "AVAILABLE",
         "customer_name": "",
@@ -1093,7 +1093,7 @@ const plotDataRawTada = [
     },
     {
         "plot_no": "92",
-        "plot_size": "200",
+        "plot_size": "N/A",
         "facing": "East",
         "plot_status": "AVAILABLE",
         "customer_name": "",
@@ -1105,7 +1105,7 @@ const plotDataRawTada = [
     },
     {
         "plot_no": "93",
-        "plot_size": "200",
+        "plot_size": "N/A",
         "facing": "West",
         "plot_status": "AVAILABLE",
         "customer_name": "",
@@ -1117,7 +1117,7 @@ const plotDataRawTada = [
     },
     {
         "plot_no": "94",
-        "plot_size": "200",
+        "plot_size": "N/A",
         "facing": "East",
         "plot_status": "AVAILABLE",
         "customer_name": "",
@@ -1129,7 +1129,7 @@ const plotDataRawTada = [
     },
     {
         "plot_no": "95",
-        "plot_size": "200",
+        "plot_size": "N/A",
         "facing": "West",
         "plot_status": "AVAILABLE",
         "customer_name": "",
@@ -1141,7 +1141,7 @@ const plotDataRawTada = [
     },
     {
         "plot_no": "96",
-        "plot_size": "200",
+        "plot_size": "N/A",
         "facing": "East",
         "plot_status": "AVAILABLE",
         "customer_name": "",
@@ -1153,7 +1153,7 @@ const plotDataRawTada = [
     },
     {
         "plot_no": "97",
-        "plot_size": "200",
+        "plot_size": "N/A",
         "facing": "West",
         "plot_status": "AVAILABLE",
         "customer_name": "",
@@ -1165,7 +1165,7 @@ const plotDataRawTada = [
     },
     {
         "plot_no": "98",
-        "plot_size": "200",
+        "plot_size": "N/A",
         "facing": "East",
         "plot_status": "AVAILABLE",
         "customer_name": "",
@@ -1177,7 +1177,7 @@ const plotDataRawTada = [
     },
     {
         "plot_no": "99",
-        "plot_size": "200",
+        "plot_size": "N/A",
         "facing": "West",
         "plot_status": "AVAILABLE",
         "customer_name": "",
@@ -1189,7 +1189,7 @@ const plotDataRawTada = [
     },
     {
         "plot_no": "100",
-        "plot_size": "200",
+        "plot_size": "N/A",
         "facing": "East",
         "plot_status": "AVAILABLE",
         "customer_name": "",
@@ -1201,7 +1201,7 @@ const plotDataRawTada = [
     },
     {
         "plot_no": "101",
-        "plot_size": "200",
+        "plot_size": "N/A",
         "facing": "West",
         "plot_status": "AVAILABLE",
         "customer_name": "",
@@ -1213,7 +1213,7 @@ const plotDataRawTada = [
     },
     {
         "plot_no": "102",
-        "plot_size": "200",
+        "plot_size": "N/A",
         "facing": "East",
         "plot_status": "AVAILABLE",
         "customer_name": "",
@@ -1225,7 +1225,7 @@ const plotDataRawTada = [
     },
     {
         "plot_no": "103",
-        "plot_size": "200",
+        "plot_size": "N/A",
         "facing": "West",
         "plot_status": "AVAILABLE",
         "customer_name": "",
@@ -1237,7 +1237,7 @@ const plotDataRawTada = [
     },
     {
         "plot_no": "104",
-        "plot_size": "200",
+        "plot_size": "N/A",
         "facing": "East",
         "plot_status": "AVAILABLE",
         "customer_name": "",
@@ -1249,7 +1249,7 @@ const plotDataRawTada = [
     },
     {
         "plot_no": "105",
-        "plot_size": "200",
+        "plot_size": "N/A",
         "facing": "West",
         "plot_status": "AVAILABLE",
         "customer_name": "",
@@ -1261,7 +1261,7 @@ const plotDataRawTada = [
     },
     {
         "plot_no": "106",
-        "plot_size": "200",
+        "plot_size": "N/A",
         "facing": "East",
         "plot_status": "AVAILABLE",
         "customer_name": "",
@@ -1273,7 +1273,7 @@ const plotDataRawTada = [
     },
     {
         "plot_no": "107",
-        "plot_size": "200",
+        "plot_size": "N/A",
         "facing": "West",
         "plot_status": "AVAILABLE",
         "customer_name": "",
@@ -1285,7 +1285,7 @@ const plotDataRawTada = [
     },
     {
         "plot_no": "108",
-        "plot_size": "200",
+        "plot_size": "N/A",
         "facing": "East",
         "plot_status": "AVAILABLE",
         "customer_name": "",
@@ -1297,7 +1297,7 @@ const plotDataRawTada = [
     },
     {
         "plot_no": "109",
-        "plot_size": "200",
+        "plot_size": "N/A",
         "facing": "West",
         "plot_status": "AVAILABLE",
         "customer_name": "",
@@ -1309,7 +1309,7 @@ const plotDataRawTada = [
     },
     {
         "plot_no": "110",
-        "plot_size": "200",
+        "plot_size": "N/A",
         "facing": "East",
         "plot_status": "AVAILABLE",
         "customer_name": "",
@@ -1321,7 +1321,7 @@ const plotDataRawTada = [
     },
     {
         "plot_no": "111",
-        "plot_size": "200",
+        "plot_size": "N/A",
         "facing": "West",
         "plot_status": "AVAILABLE",
         "customer_name": "",
@@ -1333,7 +1333,7 @@ const plotDataRawTada = [
     },
     {
         "plot_no": "112",
-        "plot_size": "200",
+        "plot_size": "N/A",
         "facing": "East",
         "plot_status": "AVAILABLE",
         "customer_name": "",
@@ -1345,7 +1345,7 @@ const plotDataRawTada = [
     },
     {
         "plot_no": "113",
-        "plot_size": "200",
+        "plot_size": "N/A",
         "facing": "West",
         "plot_status": "AVAILABLE",
         "customer_name": "",
@@ -1357,7 +1357,7 @@ const plotDataRawTada = [
     },
     {
         "plot_no": "114",
-        "plot_size": "200",
+        "plot_size": "N/A",
         "facing": "East",
         "plot_status": "AVAILABLE",
         "customer_name": "",
@@ -1369,7 +1369,7 @@ const plotDataRawTada = [
     },
     {
         "plot_no": "115",
-        "plot_size": "200",
+        "plot_size": "N/A",
         "facing": "West",
         "plot_status": "AVAILABLE",
         "customer_name": "",
@@ -1381,7 +1381,7 @@ const plotDataRawTada = [
     },
     {
         "plot_no": "116",
-        "plot_size": "200",
+        "plot_size": "N/A",
         "facing": "East",
         "plot_status": "AVAILABLE",
         "customer_name": "",
@@ -1393,7 +1393,7 @@ const plotDataRawTada = [
     },
     {
         "plot_no": "117",
-        "plot_size": "200",
+        "plot_size": "N/A",
         "facing": "West",
         "plot_status": "AVAILABLE",
         "customer_name": "",
@@ -1405,7 +1405,7 @@ const plotDataRawTada = [
     },
     {
         "plot_no": "118",
-        "plot_size": "200",
+        "plot_size": "N/A",
         "facing": "East",
         "plot_status": "AVAILABLE",
         "customer_name": "",
@@ -1417,7 +1417,7 @@ const plotDataRawTada = [
     },
     {
         "plot_no": "119",
-        "plot_size": "200",
+        "plot_size": "N/A",
         "facing": "West",
         "plot_status": "AVAILABLE",
         "customer_name": "",
@@ -1429,7 +1429,7 @@ const plotDataRawTada = [
     },
     {
         "plot_no": "120",
-        "plot_size": "200",
+        "plot_size": "N/A",
         "facing": "East",
         "plot_status": "AVAILABLE",
         "customer_name": "",
@@ -1441,7 +1441,7 @@ const plotDataRawTada = [
     },
     {
         "plot_no": "121",
-        "plot_size": "200",
+        "plot_size": "N/A",
         "facing": "West",
         "plot_status": "AVAILABLE",
         "customer_name": "",
@@ -1453,7 +1453,7 @@ const plotDataRawTada = [
     },
     {
         "plot_no": "122",
-        "plot_size": "200",
+        "plot_size": "N/A",
         "facing": "East",
         "plot_status": "AVAILABLE",
         "customer_name": "",
@@ -1465,7 +1465,7 @@ const plotDataRawTada = [
     },
     {
         "plot_no": "123",
-        "plot_size": "200",
+        "plot_size": "N/A",
         "facing": "West",
         "plot_status": "AVAILABLE",
         "customer_name": "",
@@ -1477,7 +1477,7 @@ const plotDataRawTada = [
     },
     {
         "plot_no": "124",
-        "plot_size": "200",
+        "plot_size": "N/A",
         "facing": "East",
         "plot_status": "AVAILABLE",
         "customer_name": "",
@@ -1489,7 +1489,7 @@ const plotDataRawTada = [
     },
     {
         "plot_no": "125",
-        "plot_size": "200",
+        "plot_size": "N/A",
         "facing": "West",
         "plot_status": "AVAILABLE",
         "customer_name": "",
@@ -1501,7 +1501,7 @@ const plotDataRawTada = [
     },
     {
         "plot_no": "126",
-        "plot_size": "200",
+        "plot_size": "N/A",
         "facing": "East",
         "plot_status": "AVAILABLE",
         "customer_name": "",
@@ -1513,7 +1513,7 @@ const plotDataRawTada = [
     },
     {
         "plot_no": "127",
-        "plot_size": "200",
+        "plot_size": "N/A",
         "facing": "West",
         "plot_status": "AVAILABLE",
         "customer_name": "",
@@ -1525,7 +1525,7 @@ const plotDataRawTada = [
     },
     {
         "plot_no": "128",
-        "plot_size": "200",
+        "plot_size": "N/A",
         "facing": "East",
         "plot_status": "AVAILABLE",
         "customer_name": "",
@@ -1537,7 +1537,7 @@ const plotDataRawTada = [
     },
     {
         "plot_no": "129",
-        "plot_size": "200",
+        "plot_size": "N/A",
         "facing": "West",
         "plot_status": "AVAILABLE",
         "customer_name": "",
@@ -1549,7 +1549,7 @@ const plotDataRawTada = [
     },
     {
         "plot_no": "130",
-        "plot_size": "200",
+        "plot_size": "N/A",
         "facing": "East",
         "plot_status": "AVAILABLE",
         "customer_name": "",
@@ -1561,7 +1561,7 @@ const plotDataRawTada = [
     },
     {
         "plot_no": "131",
-        "plot_size": "200",
+        "plot_size": "N/A",
         "facing": "West",
         "plot_status": "AVAILABLE",
         "customer_name": "",

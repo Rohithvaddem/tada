@@ -24,7 +24,7 @@
     let isXRayMode = false;
     let isBlueprintVisible = true;
 
-    // Street Lights, Greenery and Vehicles State
+    // Street Lights and Vehicles State
     let streetLightsGroup = null;
     const streetLightMats = {};
     const streetLightGeos = {};
@@ -33,10 +33,6 @@
     const vehiclesList = [];
     let vehicleHeadlightMaterial = null;
     let vehicleTaillightMaterial = null;
-    let cornerGreeneryGroup = null;
-    const houseTreeShared = {};
-    const plotHouseTrees = {};
-    const foliageMaterials = [];
     let lastFrameTime = performance.now();
 
     // Camera animation state
@@ -88,7 +84,7 @@
         }
         return {
             plot_no: plotNo,
-            plot_size: '200',
+            plot_size: 'N/A',
             facing: 'East',
             plot_status: 'AVAILABLE',
             reference_name: 'ASPIREALTY'
@@ -308,16 +304,13 @@
         // 7. Ground Layout Plane, Google Satellite Map & Surrounding Terrain
         setupGroundAndEnvironment();
 
-        // 8. 3D Plots (with yard trees beside each house)
+        // 8. 3D Plots
         build3DPlots();
 
-        // 9. Corner & Perimeter Boundary Greenery (Trees & Flowering Bushes strictly outside layout)
-        setupCornerGreenery();
-
-        // 10. Street Lights along all layout roads
+        // 9. Street Lights along all layout roads
         setupStreetLights();
 
-        // 11. Moving Vehicles on layout roads
+        // 10. Moving Vehicles on layout roads
         setupVehicles();
 
         // 11. Highlight Beacon (Spotlight & Ring)
@@ -439,12 +432,6 @@
         if (vehicleTaillightMaterial) {
             vehicleTaillightMaterial.emissiveIntensity = (mode === 'night') ? 3.0 : (mode === 'sunset' ? 2.2 : 1.2);
         }
-
-        // Update foliage emissives for realistic ambient night/sunset illumination
-        const foliageEmissive = (mode === 'night') ? 0.04 : (mode === 'sunset' ? 0.08 : 0.06);
-        foliageMaterials.forEach(m => {
-            if (m) m.emissiveIntensity = foliageEmissive;
-        });
     }
 
     function updatePlotEmissives(intensity) {
@@ -833,305 +820,9 @@
             plotGroup.add(labelSprite);
             plotLabels[plotNo] = labelSprite;
 
-            // Beside every house: Charming residential front-side yard garden tree
-            const treeSide = (parseInt(plotNo) % 2 === 0) ? 1 : -1;
-            const houseTree = createPlotHouseTree(pWidth, pDepth, plinthH, treeSide);
-            plotGroup.add(houseTree);
-            plotHouseTrees[plotNo] = houseTree;
-
             layoutWorldGroup.add(plotGroup);
             plotGroups[plotNo] = plotGroup;
         });
-    }
-
-    /**
-     * Create Charming Residential Yard Tree Beside Every House
-     */
-    function createPlotHouseTree(pWidth, pDepth, plinthH, treeSide) {
-        const treeGroup = new THREE.Group();
-        const houseW = pWidth * 0.72;
-        const houseD = pDepth * 0.68;
-
-        if (!houseTreeShared.trunkGeo) {
-            houseTreeShared.trunkGeo = new THREE.CylinderGeometry(0.06, 0.09, 0.85, 6);
-            houseTreeShared.trunkMat = new THREE.MeshStandardMaterial({
-                color: 0x5c4033,
-                roughness: 0.9
-            });
-
-            houseTreeShared.canopyBottomGeo = new THREE.DodecahedronGeometry(0.40, 1);
-            houseTreeShared.canopyTopGeo = new THREE.DodecahedronGeometry(0.28, 1);
-            houseTreeShared.foliageMat = new THREE.MeshStandardMaterial({
-                color: 0x2d6a4f,
-                roughness: 0.75,
-                emissive: 0x1b4332,
-                emissiveIntensity: 0.08
-            });
-            foliageMaterials.push(houseTreeShared.foliageMat);
-
-            houseTreeShared.potGeo = new THREE.CylinderGeometry(0.18, 0.14, 0.14, 8);
-            houseTreeShared.potMat = new THREE.MeshStandardMaterial({
-                color: 0x94a3b8,
-                roughness: 0.6
-            });
-        }
-
-        // Circular stone garden planter on plinth
-        const pot = new THREE.Mesh(houseTreeShared.potGeo, houseTreeShared.potMat);
-        pot.position.y = 0.07;
-        pot.receiveShadow = true;
-        treeGroup.add(pot);
-
-        // Wooden Trunk
-        const trunk = new THREE.Mesh(houseTreeShared.trunkGeo, houseTreeShared.trunkMat);
-        trunk.position.y = 0.42;
-        trunk.castShadow = true;
-        treeGroup.add(trunk);
-
-        // Lower Foliage Canopy
-        const canopy1 = new THREE.Mesh(houseTreeShared.canopyBottomGeo, houseTreeShared.foliageMat);
-        canopy1.position.y = 0.78;
-        canopy1.castShadow = true;
-        treeGroup.add(canopy1);
-
-        // Upper Foliage Canopy
-        const canopy2 = new THREE.Mesh(houseTreeShared.canopyTopGeo, houseTreeShared.foliageMat);
-        canopy2.position.set(0, 1.08, 0);
-        canopy2.castShadow = true;
-        treeGroup.add(canopy2);
-
-        // Place in side/front garden beside house
-        const treeX = treeSide * (houseW * 0.54 + 0.32);
-        const treeZ = houseD * 0.20;
-        treeGroup.position.set(treeX, plinthH + 0.06, treeZ);
-
-        return treeGroup;
-    }
-
-    /**
-     * Setup Lush Trees & Flowering Greenery Across Layout Corners & Peripheral Boundaries
-     * (Strictly in the 4 corners outside the layout, never on plots and never on roads)
-     */
-    function setupCornerGreenery() {
-        if (cornerGreeneryGroup) {
-            layoutWorldGroup.remove(cornerGreeneryGroup);
-            cornerGreeneryGroup = null;
-        }
-
-        cornerGreeneryGroup = new THREE.Group();
-
-        // Shared geometries & materials
-        const trunkGeoDeciduous = new THREE.CylinderGeometry(0.18, 0.28, 2.2, 8);
-        const trunkGeoPine = new THREE.CylinderGeometry(0.14, 0.22, 2.8, 8);
-        const trunkMat = new THREE.MeshStandardMaterial({ color: 0x4a3728, roughness: 0.9 });
-
-        const foliageCanopyMainGeo = new THREE.DodecahedronGeometry(1.35, 1);
-        const foliageCanopySubGeo = new THREE.DodecahedronGeometry(0.95, 1);
-        const pineCone1Geo = new THREE.ConeGeometry(1.4, 2.0, 7);
-        const pineCone2Geo = new THREE.ConeGeometry(1.1, 1.8, 7);
-        const pineCone3Geo = new THREE.ConeGeometry(0.75, 1.4, 7);
-
-        const bushGeo = new THREE.DodecahedronGeometry(0.65, 1);
-        const flowerGeo = new THREE.DodecahedronGeometry(0.20, 0);
-
-        const matLush = new THREE.MeshStandardMaterial({ color: 0x2d6a4f, roughness: 0.75, emissive: 0x1b4332, emissiveIntensity: 0.08 });
-        const matBright = new THREE.MeshStandardMaterial({ color: 0x40916c, roughness: 0.72, emissive: 0x2d6a4f, emissiveIntensity: 0.08 });
-        const matEmerald = new THREE.MeshStandardMaterial({ color: 0x52b788, roughness: 0.70, emissive: 0x40916c, emissiveIntensity: 0.06 });
-        const matPine = new THREE.MeshStandardMaterial({ color: 0x1e4a38, roughness: 0.80, emissive: 0x133024, emissiveIntensity: 0.06 });
-        const matBush = new THREE.MeshStandardMaterial({ color: 0x38b000, roughness: 0.70, emissive: 0x2d6a4f, emissiveIntensity: 0.07 });
-        const matFlowerPink = new THREE.MeshStandardMaterial({ color: 0xf43f5e, roughness: 0.5, emissive: 0xe11d48, emissiveIntensity: 0.18 });
-        const matFlowerYellow = new THREE.MeshStandardMaterial({ color: 0xfbbf24, roughness: 0.5, emissive: 0xd97706, emissiveIntensity: 0.18 });
-
-        foliageMaterials.push(matLush, matBright, matEmerald, matPine, matBush);
-
-        function createDeciduousTree(scale, folMat) {
-            const group = new THREE.Group();
-            const trunk = new THREE.Mesh(trunkGeoDeciduous, trunkMat);
-            trunk.position.y = 1.1;
-            trunk.castShadow = true;
-            group.add(trunk);
-
-            const c1 = new THREE.Mesh(foliageCanopyMainGeo, folMat || matLush);
-            c1.position.set(0, 2.7, 0);
-            c1.castShadow = true;
-            group.add(c1);
-
-            const c2 = new THREE.Mesh(foliageCanopySubGeo, folMat || matBright);
-            c2.position.set(0.45, 3.4, 0.35);
-            c2.castShadow = true;
-            group.add(c2);
-
-            const c3 = new THREE.Mesh(foliageCanopySubGeo, folMat || matEmerald);
-            c3.position.set(-0.4, 3.1, -0.3);
-            c3.castShadow = true;
-            group.add(c3);
-
-            group.scale.set(scale, scale, scale);
-            return group;
-        }
-
-        function createPineTree(scale) {
-            const group = new THREE.Group();
-            const trunk = new THREE.Mesh(trunkGeoPine, trunkMat);
-            trunk.position.y = 1.4;
-            trunk.castShadow = true;
-            group.add(trunk);
-
-            const cone1 = new THREE.Mesh(pineCone1Geo, matPine);
-            cone1.position.y = 2.4;
-            cone1.castShadow = true;
-            group.add(cone1);
-
-            const cone2 = new THREE.Mesh(pineCone2Geo, matPine);
-            cone2.position.y = 3.6;
-            cone2.castShadow = true;
-            group.add(cone2);
-
-            const cone3 = new THREE.Mesh(pineCone3Geo, matPine);
-            cone3.position.y = 4.6;
-            cone3.castShadow = true;
-            group.add(cone3);
-
-            group.scale.set(scale, scale, scale);
-            return group;
-        }
-
-        function createFlowerBush(scale, flowerColor) {
-            const group = new THREE.Group();
-            const bush = new THREE.Mesh(bushGeo, matBush);
-            bush.position.y = 0.45;
-            bush.castShadow = true;
-            group.add(bush);
-
-            const fMat = (flowerColor === 'yellow') ? matFlowerYellow : matFlowerPink;
-            const offsets = [[0.25, 0.72, 0.2], [-0.2, 0.65, -0.25], [0.1, 0.8, -0.15]];
-            offsets.forEach(off => {
-                const fl = new THREE.Mesh(flowerGeo, fMat);
-                fl.position.set(off[0], off[1], off[2]);
-                group.add(fl);
-            });
-
-            group.scale.set(scale, scale, scale);
-            return group;
-        }
-
-        // Curated, 100% collision-free coordinates across the 4 corners of the layout
-        const cornerElements = [
-            // 1. North-West Corner (Landscaped Entry Park & Garden Buffer)
-            { x: -108, z: -80, type: 'deciduous', scale: 1.2 },
-            { x: -102, z: -82, type: 'pine', scale: 1.3 },
-            { x: -96,  z: -83, type: 'deciduous', scale: 1.1 },
-            { x: -105, z: -74, type: 'pine', scale: 1.2 },
-            { x: -99,  z: -76, type: 'deciduous', scale: 1.0 },
-            { x: -93,  z: -78, type: 'pine', scale: 1.1 },
-            { x: -108, z: -68, type: 'deciduous', scale: 1.15 },
-            { x: -102, z: -70, type: 'pine', scale: 1.25 },
-            { x: -96,  z: -72, type: 'deciduous', scale: 1.05 },
-            { x: -105, z: -62, type: 'pine', scale: 1.1 },
-            { x: -100, z: -64, type: 'deciduous', scale: 1.2 },
-            { x: -94,  z: -66, type: 'pine', scale: 1.0 },
-            { x: -107, z: -56, type: 'deciduous', scale: 1.2 },
-            { x: -101, z: -58, type: 'pine', scale: 1.15 },
-            { x: -95,  z: -59, type: 'deciduous', scale: 1.05 },
-            { x: -88,  z: -75, type: 'pine', scale: 1.1 },
-            { x: -88,  z: -68, type: 'deciduous', scale: 1.0 },
-            // NW Bushes
-            { x: -104, z: -78, type: 'bush_pink', scale: 0.9 },
-            { x: -98,  z: -80, type: 'bush_yellow', scale: 1.0 },
-            { x: -102, z: -66, type: 'bush_pink', scale: 0.85 },
-            { x: -97,  z: -70, type: 'bush_yellow', scale: 0.95 },
-            { x: -103, z: -60, type: 'bush_pink', scale: 1.0 },
-            { x: -97,  z: -62, type: 'bush_yellow', scale: 0.9 },
-
-            // 2. North-East Corner (Perimeter Boundary Buffer)
-            { x: 100, z: -86, type: 'deciduous', scale: 1.15 },
-            { x: 106, z: -86, type: 'pine', scale: 1.3 },
-            { x: 112, z: -86, type: 'deciduous', scale: 1.2 },
-            { x: 98,  z: -84, type: 'pine', scale: 1.1 },
-            { x: 104, z: -84, type: 'deciduous', scale: 1.25 },
-            { x: 110, z: -84, type: 'pine', scale: 1.2 },
-            { x: 113, z: -78, type: 'deciduous', scale: 1.1 },
-            { x: 114, z: -72, type: 'pine', scale: 1.15 },
-            { x: 113, z: -66, type: 'deciduous', scale: 1.05 },
-            { x: 114, z: -60, type: 'pine', scale: 1.2 },
-            { x: 108, z: -85, type: 'deciduous', scale: 1.1 },
-            // NE Bushes
-            { x: 103, z: -86, type: 'bush_pink', scale: 0.9 },
-            { x: 109, z: -86, type: 'bush_yellow', scale: 0.95 },
-            { x: 114, z: -75, type: 'bush_pink', scale: 0.85 },
-            { x: 114, z: -69, type: 'bush_yellow', scale: 0.9 },
-            { x: 113, z: -63, type: 'bush_pink', scale: 0.85 },
-
-            // 3. South-West Corner (Perimeter Boundary Buffer)
-            { x: -108, z: 52, type: 'deciduous', scale: 1.2 },
-            { x: -102, z: 54, type: 'pine', scale: 1.3 },
-            { x: -96,  z: 56, type: 'deciduous', scale: 1.15 },
-            { x: -90,  z: 58, type: 'pine', scale: 1.1 },
-            { x: -106, z: 62, type: 'pine', scale: 1.25 },
-            { x: -100, z: 64, type: 'deciduous', scale: 1.2 },
-            { x: -94,  z: 66, type: 'pine', scale: 1.1 },
-            { x: -88,  z: 68, type: 'deciduous', scale: 1.05 },
-            { x: -108, z: 72, type: 'deciduous', scale: 1.2 },
-            { x: -102, z: 74, type: 'pine', scale: 1.3 },
-            { x: -96,  z: 76, type: 'deciduous', scale: 1.15 },
-            { x: -90,  z: 78, type: 'pine', scale: 1.1 },
-            { x: -104, z: 82, type: 'deciduous', scale: 1.25 },
-            { x: -98,  z: 83, type: 'pine', scale: 1.2 },
-            { x: -92,  z: 84, type: 'deciduous', scale: 1.1 },
-            // SW Bushes
-            { x: -104, z: 56, type: 'bush_pink', scale: 0.9 },
-            { x: -98,  z: 60, type: 'bush_yellow', scale: 0.95 },
-            { x: -102, z: 68, type: 'bush_pink', scale: 0.85 },
-            { x: -96,  z: 72, type: 'bush_yellow', scale: 0.9 },
-            { x: -100, z: 78, type: 'bush_pink', scale: 0.95 },
-            { x: -94,  z: 80, type: 'bush_yellow', scale: 0.9 },
-
-            // 4. South-East Corner (Perimeter Boundary Buffer)
-            { x: 92,  z: 52, type: 'deciduous', scale: 1.15 },
-            { x: 98,  z: 54, type: 'pine', scale: 1.25 },
-            { x: 104, z: 55, type: 'deciduous', scale: 1.2 },
-            { x: 110, z: 56, type: 'pine', scale: 1.15 },
-            { x: 90,  z: 62, type: 'pine', scale: 1.2 },
-            { x: 96,  z: 64, type: 'deciduous', scale: 1.1 },
-            { x: 102, z: 65, type: 'pine', scale: 1.25 },
-            { x: 108, z: 66, type: 'deciduous', scale: 1.2 },
-            { x: 114, z: 67, type: 'pine', scale: 1.1 },
-            { x: 92,  z: 72, type: 'deciduous', scale: 1.2 },
-            { x: 98,  z: 74, type: 'pine', scale: 1.3 },
-            { x: 104, z: 75, type: 'deciduous', scale: 1.15 },
-            { x: 110, z: 76, type: 'pine', scale: 1.25 },
-            { x: 96,  z: 82, type: 'deciduous', scale: 1.2 },
-            { x: 102, z: 83, type: 'pine', scale: 1.2 },
-            { x: 108, z: 84, type: 'deciduous', scale: 1.15 },
-            // SE Bushes
-            { x: 94,  z: 56, type: 'bush_pink', scale: 0.9 },
-            { x: 100, z: 58, type: 'bush_yellow', scale: 0.95 },
-            { x: 106, z: 60, type: 'bush_pink', scale: 0.85 },
-            { x: 94,  z: 68, type: 'bush_yellow', scale: 0.9 },
-            { x: 100, z: 70, type: 'bush_pink', scale: 0.95 },
-            { x: 106, z: 80, type: 'bush_yellow', scale: 0.9 }
-        ];
-
-        cornerElements.forEach(item => {
-            let elMesh;
-            if (item.type === 'deciduous') {
-                elMesh = createDeciduousTree(item.scale);
-            } else if (item.type === 'pine') {
-                elMesh = createPineTree(item.scale);
-            } else if (item.type === 'bush_pink') {
-                elMesh = createFlowerBush(item.scale, 'pink');
-            } else if (item.type === 'bush_yellow') {
-                elMesh = createFlowerBush(item.scale, 'yellow');
-            }
-            if (elMesh) {
-                elMesh.position.set(item.x, 0.05, item.z);
-                elMesh.rotation.y = (item.x * 17 + item.z * 23) % (Math.PI * 2);
-                cornerGreeneryGroup.add(elMesh);
-            }
-        });
-
-        layoutWorldGroup.add(cornerGreeneryGroup);
-        console.log(`✅ Placed ${cornerElements.length} lush trees and greenery elements across corners and boundary buffer zones.`);
     }
 
     /**
@@ -1883,7 +1574,7 @@
         const plotNo = userData.plotNo;
         const status = userData.status;
         const color = userData.baseColorHex;
-        const size = d.plot_size || 'N/A';
+        const size = (!d.plot_size || d.plot_size === 'N/A') ? 'N/A' : d.plot_size + ' Sq. Yds';
         const facing = d.facing || 'East';
 
         tooltip.innerHTML = `
@@ -1892,7 +1583,7 @@
                 <span style="font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 4px; background: ${color}; color: #fff;">${status}</span>
             </div>
             <div style="font-size: 11px; color: #94a3b8; line-height: 1.4;">
-                <div>📐 Area: <strong style="color: #f8fafc;">${size} Sq. Yds</strong></div>
+                <div>📐 Area: <strong style="color: #f8fafc;">${size}</strong></div>
                 <div>🧭 Facing: <strong style="color: #f8fafc;">${facing}</strong></div>
             </div>
             <div style="font-size: 9.5px; color: #38bdf8; margin-top: 5px; font-weight: 600;">
@@ -1917,7 +1608,7 @@
         const drawer = document.getElementById('threeInspectDrawer');
         if (!drawer) return;
 
-        const size = (detail && detail.plot_size) ? detail.plot_size + ' Sq. Yards' : 'N/A';
+        const size = (!detail || !detail.plot_size || detail.plot_size === 'N/A') ? 'N/A' : detail.plot_size + ' Sq. Yards';
         const facing = (detail && detail.facing) ? detail.facing : 'N/A';
         const refName = (detail && detail.reference_name) ? detail.reference_name : 'ASPIREALTY';
         const dimN = (detail && detail.dim_north) ? detail.dim_north : '-';
@@ -2086,9 +1777,6 @@
         });
         Object.values(plotLabels).forEach(label => {
             if (label) label.visible = isPlotsVisible;
-        });
-        Object.values(plotHouseTrees).forEach(tree => {
-            if (tree) tree.visible = isPlotsVisible;
         });
         const btn = document.getElementById('threeSoloLayoutBtn');
         if (btn) btn.classList.toggle('active', !isPlotsVisible);
