@@ -9,7 +9,7 @@
 
     // Module State
     let scene, camera, renderer, controls;
-    let groundMesh, layoutTexture;
+    let groundMesh, layoutTexture, layoutWorldGroup, satelliteMesh;
     const plotMeshes = {};       // plotNo -> THREE.Mesh
     const plotLabels = {};       // plotNo -> THREE.Sprite
     const plotGroups = {};       // plotNo -> THREE.Group
@@ -358,12 +358,12 @@
 
         // 1. Scene
         scene = new THREE.Scene();
-        scene.background = new THREE.Color(0x0a0f1d);
-        scene.fog = new THREE.FogExp2(0x0a0f1d, 0.002);
+        scene.background = new THREE.Color(0x87ceeb);
+        scene.fog = new THREE.FogExp2(0xb0d4eb, 0.0006);
 
         // 2. Camera
         const overviewPreset = getCameraPreset('overview');
-        camera = new THREE.PerspectiveCamera(45, aspect, 0.5, 1500);
+        camera = new THREE.PerspectiveCamera(45, aspect, 0.5, 3500);
         camera.position.copy(overviewPreset.pos);
 
         // 3. Renderer
@@ -382,19 +382,24 @@
             controls = new THREE.OrbitControls(camera, renderer.domElement);
             controls.enableDamping = true;
             controls.dampingFactor = 0.06;
-            controls.maxPolarAngle = Math.PI / 2 - 0.05;
-            controls.minDistance = 15;
-            controls.maxDistance = 350;
+            controls.maxPolarAngle = Math.PI / 2 - 0.02;
+            controls.minDistance = 10;
+            controls.maxDistance = 1400;
             controls.target.copy(overviewPreset.target);
         }
 
         // 5. Lighting
         setupLighting();
 
-        // 6. Ground Layout Plane & Terrain
+        // 6. Layout World Group (Rotated by -7.30° to match calibrated KMZ layout)
+        layoutWorldGroup = new THREE.Group();
+        layoutWorldGroup.rotation.y = THREE.MathUtils.degToRad(-7.30);
+        scene.add(layoutWorldGroup);
+
+        // 7. Ground Layout Plane, Google Satellite Map & Surrounding Terrain
         setupGroundAndEnvironment();
 
-        // 7. 3D Plots
+        // 8. 3D Plots
         build3DPlots();
 
         // 8. Highlight Beacon (Spotlight & Ring)
@@ -452,10 +457,10 @@
         if (!scene || !lights.sun) return;
 
         if (mode === 'day') {
-            scene.background.set(0x0a0f1d);
-            scene.fog.color.set(0x0a0f1d);
+            scene.background.set(0x87ceeb);
+            scene.fog.color.set(0xb0d4eb);
             lights.ambient.color.set(0xffffff);
-            lights.ambient.intensity = 0.55;
+            lights.ambient.intensity = 0.65;
             lights.hemi.color.set(0xe0f2fe);
             lights.hemi.groundColor.set(0x166534);
             lights.hemi.intensity = 0.6;
@@ -465,10 +470,10 @@
             lights.nightLightsGroup.children.forEach(l => l.intensity = 0);
             updatePlotEmissives(0.05);
         } else if (mode === 'sunset') {
-            scene.background.set(0x1a0d18);
-            scene.fog.color.set(0x1a0d18);
+            scene.background.set(0xfdba74);
+            scene.fog.color.set(0xfed7aa);
             lights.ambient.color.set(0xfed7aa);
-            lights.ambient.intensity = 0.45;
+            lights.ambient.intensity = 0.55;
             lights.hemi.color.set(0xfb923c);
             lights.hemi.groundColor.set(0x78350f);
             lights.hemi.intensity = 0.5;
@@ -478,10 +483,10 @@
             lights.nightLightsGroup.children.forEach(l => l.intensity = 0.3);
             updatePlotEmissives(0.15);
         } else if (mode === 'night') {
-            scene.background.set(0x030712);
-            scene.fog.color.set(0x030712);
+            scene.background.set(0x020617);
+            scene.fog.color.set(0x0f172a);
             lights.ambient.color.set(0x1e293b);
-            lights.ambient.intensity = 0.25;
+            lights.ambient.intensity = 0.35;
             lights.hemi.color.set(0x1e1b4b);
             lights.hemi.groundColor.set(0x020617);
             lights.hemi.intensity = 0.3;
@@ -505,25 +510,69 @@
      * Setup Ground Blueprint Plane, Surrounding Terrain & Walls
      */
     function setupGroundAndEnvironment() {
-        const outerGeo = new THREE.PlaneGeometry(600, 500);
-        const outerMat = new THREE.MeshStandardMaterial({
-            color: 0x07111c,
-            roughness: 0.9,
-            metalness: 0.1
-        });
-        const outerMesh = new THREE.Mesh(outerGeo, outerMat);
-        outerMesh.rotation.x = -Math.PI / 2;
-        outerMesh.position.y = -0.15;
-        outerMesh.receiveShadow = true;
-        scene.add(outerMesh);
-
-        const layoutGeo = new THREE.PlaneGeometry(LAYOUT_WIDTH, LAYOUT_HEIGHT, 16, 16);
         const texLoader = new THREE.TextureLoader();
         if (window.location && window.location.protocol === 'file:') {
             texLoader.setCrossOrigin('');
         }
 
-        // Default procedural texture first to guarantee instant visibility
+        // 1. Vast Outer Landscape Terrain (Far horizon surrounding Tada)
+        const outerGeo = new THREE.PlaneGeometry(2400, 2400);
+        const outerMat = new THREE.MeshBasicMaterial({
+            color: 0x14281d, // Satellite green-earth tone
+            side: THREE.DoubleSide
+        });
+        const outerMesh = new THREE.Mesh(outerGeo, outerMat);
+        outerMesh.rotation.x = -Math.PI / 2;
+        outerMesh.position.set(-138.96, -0.25, -71.69);
+        scene.add(outerMesh);
+
+        // 2. Real Google Satellite Map Terrain Plane (Centered on calibrated Tada coordinates)
+        const satGeo = new THREE.PlaneGeometry(894, 894, 16, 16);
+        const satMat = new THREE.MeshBasicMaterial({
+            color: 0xffffff,
+            side: THREE.DoubleSide
+        });
+        satelliteMesh = new THREE.Mesh(satGeo, satMat);
+        satelliteMesh.rotation.x = -Math.PI / 2;
+        satelliteMesh.position.set(-138.96, -0.15, -71.69);
+        scene.add(satelliteMesh);
+
+        function applySatTexture(tex) {
+            if (!tex || !satelliteMesh) return;
+            const maxAniso = (renderer && renderer.capabilities && renderer.capabilities.getMaxAnisotropy)
+                ? renderer.capabilities.getMaxAnisotropy() : 8;
+            tex.anisotropy = maxAniso;
+            tex.generateMipmaps = true;
+            tex.minFilter = THREE.LinearMipmapLinearFilter;
+            tex.magFilter = THREE.LinearFilter;
+            tex.needsUpdate = true;
+            satelliteMesh.material.map = tex;
+            satelliteMesh.material.needsUpdate = true;
+        }
+
+        // Priority 1: Instant load from embedded satellite base64 (local file:// & offline guaranteed)
+        if (typeof TADA_SATELLITE_TEXTURE_B64 !== 'undefined' && TADA_SATELLITE_TEXTURE_B64) {
+            texLoader.load(TADA_SATELLITE_TEXTURE_B64, (tex) => {
+                applySatTexture(tex);
+                console.log('✅ Loaded Google Satellite terrain via embedded Base64 URI.');
+            });
+        }
+
+        // Priority 2: External Google Satellite image files
+        texLoader.load(
+            'tada_satellite_ground.webp?v=1.9.0',
+            (tex) => {
+                applySatTexture(tex);
+                console.log('✅ Loaded Google Satellite terrain: tada_satellite_ground.webp');
+            },
+            undefined,
+            () => {
+                texLoader.load('tada_satellite_ground.jpg?v=1.9.0', applySatTexture);
+            }
+        );
+
+        // 3. Blueprint Layout Ground Plane (Inside rotated layoutWorldGroup)
+        const layoutGeo = new THREE.PlaneGeometry(LAYOUT_WIDTH, LAYOUT_HEIGHT, 16, 16);
         const fallbackTex = createProceduralGroundTexture();
         const layoutMat = new THREE.MeshBasicMaterial({
             map: fallbackTex,
@@ -535,10 +584,10 @@
         groundMesh.rotation.x = -Math.PI / 2;
         groundMesh.position.y = 0;
         groundMesh.receiveShadow = false;
-        scene.add(groundMesh);
+        layoutWorldGroup.add(groundMesh);
 
         function applyLayoutTexture(tex) {
-            if (!tex) return;
+            if (!tex || !groundMesh) return;
             const maxAniso = (renderer && renderer.capabilities && renderer.capabilities.getMaxAnisotropy) 
                 ? renderer.capabilities.getMaxAnisotropy() : 8;
             tex.anisotropy = maxAniso;
@@ -547,10 +596,8 @@
             tex.magFilter = THREE.LinearFilter;
             tex.needsUpdate = true;
             layoutTexture = tex;
-            if (groundMesh) {
-                groundMesh.material.map = tex;
-                groundMesh.material.needsUpdate = true;
-            }
+            groundMesh.material.map = tex;
+            groundMesh.material.needsUpdate = true;
         }
 
         // Priority 1: Load from embedded Base64 (100% works locally on file:// without CORS and offline)
@@ -598,7 +645,7 @@
             }
         );
 
-        // Boundary compound walls
+        // Boundary compound walls (Added to layoutWorldGroup)
         const wallMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.8 });
         const wallThickness = 1.2;
         const wallHeight = 1.0;
@@ -607,37 +654,37 @@
         const nWall = new THREE.Mesh(nWallGeo, wallMat);
         nWall.position.set(0, wallHeight / 2, -(LAYOUT_HEIGHT / 2 + 1));
         nWall.castShadow = true;
-        scene.add(nWall);
+        layoutWorldGroup.add(nWall);
 
         const sWallPartGeo = new THREE.BoxGeometry((LAYOUT_WIDTH - 24) / 2, wallHeight, wallThickness);
         const sWallL = new THREE.Mesh(sWallPartGeo, wallMat);
         sWallL.position.set(-((LAYOUT_WIDTH + 24) / 4), wallHeight / 2, (LAYOUT_HEIGHT / 2 + 1));
         sWallL.castShadow = true;
-        scene.add(sWallL);
+        layoutWorldGroup.add(sWallL);
 
         const sWallR = new THREE.Mesh(sWallPartGeo, wallMat);
         sWallR.position.set(((LAYOUT_WIDTH + 24) / 4), wallHeight / 2, (LAYOUT_HEIGHT / 2 + 1));
         sWallR.castShadow = true;
-        scene.add(sWallR);
+        layoutWorldGroup.add(sWallR);
 
         const wWallGeo = new THREE.BoxGeometry(wallThickness, wallHeight, LAYOUT_HEIGHT);
         const wWall = new THREE.Mesh(wWallGeo, wallMat);
         wWall.position.set(-(LAYOUT_WIDTH / 2 + 1), wallHeight / 2, 0);
         wWall.castShadow = true;
-        scene.add(wWall);
+        layoutWorldGroup.add(wWall);
 
         const eWallGeo = new THREE.BoxGeometry(wallThickness, wallHeight, LAYOUT_HEIGHT);
         const eWall = new THREE.Mesh(eWallGeo, wallMat);
         eWall.position.set((LAYOUT_WIDTH / 2 + 1), wallHeight / 2, 0);
         eWall.castShadow = true;
-        scene.add(eWall);
+        layoutWorldGroup.add(eWall);
 
-        // 3D Trees and Entrance Arch
+        // 3D Trees and Entrance Arch (Added to layoutWorldGroup)
         plotTreeGroup = createTreeGroup();
-        scene.add(plotTreeGroup);
+        layoutWorldGroup.add(plotTreeGroup);
 
         const entranceArch = createEntranceArch();
-        scene.add(entranceArch);
+        layoutWorldGroup.add(entranceArch);
     }
 
     /**
@@ -735,7 +782,7 @@
             plotGroup.add(labelSprite);
             plotLabels[plotNo] = labelSprite;
 
-            scene.add(plotGroup);
+            layoutWorldGroup.add(plotGroup);
             plotGroups[plotNo] = plotGroup;
         });
     }
@@ -882,9 +929,11 @@
         const group = u.parentGroup;
 
         if (beaconRing && group) {
-            beaconRing.position.set(group.position.x, 0.15, group.position.z);
+            const worldPos = new THREE.Vector3();
+            group.getWorldPosition(worldPos);
+            beaconRing.position.set(worldPos.x, 0.15, worldPos.z);
             beaconRing.visible = true;
-            beaconLight.position.set(group.position.x, 8, group.position.z);
+            beaconLight.position.set(worldPos.x, 8, worldPos.z);
             beaconLight.color.set(u.baseColor);
             beaconLight.intensity = 2.5;
         }
@@ -892,9 +941,10 @@
         populate3DInspectDrawer(u.detail, plotNo, u.status, u.baseColorHex);
 
         if (smoothFocus && group) {
-            const targetPos = group.position.clone();
+            const worldPos = new THREE.Vector3();
+            group.getWorldPosition(worldPos);
             const offset = new THREE.Vector3(15, 22, 22);
-            animateCameraTo(targetPos.clone().add(offset), targetPos);
+            animateCameraTo(worldPos.clone().add(offset), worldPos);
         }
     }
 
