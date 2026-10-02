@@ -35,6 +35,28 @@
     let vehicleTaillightMaterial = null;
     let lastFrameTime = performance.now();
 
+    // First-Person Walk Mode State
+    let isWalkModeActive = false;
+    let walkYaw = Math.PI * 0.88;
+    let walkPitch = -0.05;
+    const walkKeys = {};
+    let walkBobTimer = 0;
+    const walkTouchDir = { x: 0, z: 0 };
+    let preWalkCamPos = null;
+    let preWalkTarget = null;
+    let isWalkDragging = false;
+    let walkDragPrev = { x: 0, y: 0 };
+
+    // Grand Entrance Arch & Landscaping Groups
+    let entranceArchGroup = null;
+    let landscapingGroup = null;
+    const archSpotlights = [];
+    const treeUplights = [];
+
+    // 3D House Customization State (plotNo -> 'villa' | 'duplex' | 'bungalow' | 'open')
+    const customPlotStyles = {};
+    let globalDefaultStyle = 'villa';
+
     // Camera animation state
     let isCameraAnimating = false;
     let cameraStartPos = null;
@@ -313,7 +335,13 @@
         // 10. Moving Vehicles on layout roads
         setupVehicles();
 
-        // 11. Highlight Beacon (Spotlight & Ring)
+        // 11. Grand Entrance Arch near Plot No 9
+        setupEntranceArch();
+
+        // 12. Avenue Landscaping (Royal Palms & Flowering Trees)
+        setupAvenueLandscaping();
+
+        // 13. Highlight Beacon (Spotlight & Ring)
         setupBeacon();
 
         // 12. Event Listeners for Raycasting & Resize
@@ -431,6 +459,18 @@
         }
         if (vehicleTaillightMaterial) {
             vehicleTaillightMaterial.emissiveIntensity = (mode === 'night') ? 3.0 : (mode === 'sunset' ? 2.2 : 1.2);
+        }
+
+        // Update entrance arch spotlights
+        if (archSpotlights && archSpotlights.length > 0) {
+            const archInt = (mode === 'night') ? 2.5 : (mode === 'sunset' ? 1.4 : 0.0);
+            archSpotlights.forEach(sl => sl.intensity = archInt);
+        }
+
+        // Update tree uplights
+        if (treeUplights && treeUplights.length > 0) {
+            const treeInt = (mode === 'night') ? 1.2 : (mode === 'sunset' ? 0.6 : 0.0);
+            treeUplights.forEach(ul => ul.intensity = treeInt);
         }
     }
 
@@ -695,109 +735,9 @@
             plinthMesh.receiveShadow = true;
             plotGroup.add(plinthMesh);
 
-            // 2. Main House Body (Walls colored in plot status: Green for Available, Red for Registered)
-            const houseGeo = new THREE.BoxGeometry(houseW, houseH, houseD);
-            const houseMat = new THREE.MeshStandardMaterial({
-                color: colorThree,
-                roughness: 0.52,
-                metalness: 0.05,
-                emissive: colorThree,
-                emissiveIntensity: 0.14,
-                transparent: true,
-                opacity: 0.96,
-                depthWrite: true
-            });
-            const houseMesh = new THREE.Mesh(houseGeo, houseMat);
-            const houseDefaultY = plinthH + houseH / 2 + 0.08;
-            houseMesh.position.y = houseDefaultY;
-            houseMesh.castShadow = true;
-            houseMesh.receiveShadow = true;
-            houseMesh.renderOrder = 20;
-
-            // 3. Pitched Hip Roof (Richer, darker architectural shade of status color)
-            const roofColor = colorThree.clone().multiplyScalar(0.72);
-            const roofRadius = Math.sqrt(Math.pow(houseW * 0.58, 2) + Math.pow(houseD * 0.58, 2));
-            const roofGeo = new THREE.ConeGeometry(roofRadius, roofH, 4);
-            roofGeo.rotateY(Math.PI / 4); // Align 4 slopes with 4 house walls
-            const roofMat = new THREE.MeshStandardMaterial({
-                color: roofColor,
-                roughness: 0.45,
-                metalness: 0.05,
-                emissive: roofColor,
-                emissiveIntensity: 0.08,
-                transparent: true,
-                opacity: 0.96,
-                depthWrite: true
-            });
-            const roofMesh = new THREE.Mesh(roofGeo, roofMat);
-            roofMesh.position.set(0, houseH / 2 + roofH / 2, 0);
-            roofMesh.castShadow = true;
-            roofMesh.renderOrder = 21;
-            houseMesh.add(roofMesh);
-
-            // 4. Architectural Front Entrance Door (+Z face)
-            const doorGeo = new THREE.BoxGeometry(houseW * 0.24, 0.75, 0.06);
-            const doorMat = new THREE.MeshStandardMaterial({
-                color: 0x1e293b,
-                roughness: 0.6
-            });
-            const doorMesh = new THREE.Mesh(doorGeo, doorMat);
-            doorMesh.position.set(0, -houseH / 2 + 0.38, houseD / 2 + 0.03);
-            houseMesh.add(doorMesh);
-
-            // 5. Windows with soft reflective architectural glow
-            const winGeo = new THREE.BoxGeometry(houseW * 0.20, 0.42, 0.05);
-            const winMat = new THREE.MeshStandardMaterial({
-                color: 0xe0f2fe,
-                roughness: 0.2,
-                metalness: 0.6,
-                emissive: 0x38bdf8,
-                emissiveIntensity: 0.25
-            });
-            const winL = new THREE.Mesh(winGeo, winMat);
-            winL.position.set(-houseW * 0.27, -0.05, houseD / 2 + 0.03);
-            houseMesh.add(winL);
-
-            const winR = new THREE.Mesh(winGeo, winMat);
-            winR.position.set(houseW * 0.27, -0.05, houseD / 2 + 0.03);
-            houseMesh.add(winR);
-
-            // 6. Chimney detail
-            const chimneyGeo = new THREE.BoxGeometry(0.32, 0.60, 0.32);
-            const chimneyMat = new THREE.MeshStandardMaterial({ color: 0x475569, roughness: 0.7 });
-            const chimney = new THREE.Mesh(chimneyGeo, chimneyMat);
-            chimney.position.set(houseW * 0.24, houseH / 2 + roofH * 0.52, -houseD * 0.15);
-            chimney.castShadow = true;
-            houseMesh.add(chimney);
-
-            // 7. Architectural Wall Edge Outlines
-            const edgesGeo = new THREE.EdgesGeometry(houseGeo);
-            const edgesMat = new THREE.LineBasicMaterial({
-                color: 0x0f172a,
-                transparent: true,
-                opacity: 0.35
-            });
-            const wireframe = new THREE.LineSegments(edgesGeo, edgesMat);
-            wireframe.renderOrder = 22;
-            houseMesh.add(wireframe);
-
-            // UserData for Raycasting & Tooltips
-            houseMesh.userData = {
-                plotNo,
-                detail,
-                status,
-                baseColorHex: colorHex,
-                baseColor: colorThree.clone(),
-                roofColor: roofColor.clone(),
-                roofMesh: roofMesh,
-                defaultY: houseDefaultY,
-                pWidth,
-                pDepth,
-                pHeight: plinthH + houseH + roofH,
-                parentGroup: plotGroup
-            };
-            roofMesh.userData = { plotNo, parentMesh: houseMesh };
-
+            // 2. Main 3D Architecture Model (Customizable: Villa, Duplex, Bungalow, Open Plot)
+            const style = customPlotStyles[plotNo] || globalDefaultStyle || 'villa';
+            const houseMesh = createPlotArchitectureMesh(plotNo, detail, status, colorHex, pWidth, pDepth, style, plotGroup);
             plotGroup.add(houseMesh);
             plotMeshes[plotNo] = houseMesh;
 
@@ -824,6 +764,853 @@
             plotGroups[plotNo] = plotGroup;
         });
     }
+
+
+    /**
+     * Create Architecture Mesh for a Plot based on selected style ('villa', 'duplex', 'bungalow', 'open')
+     */
+    function createPlotArchitectureMesh(plotNo, detail, status, colorHex, pWidth, pDepth, styleKey, plotGroup) {
+        const style = styleKey || customPlotStyles[plotNo] || globalDefaultStyle || 'villa';
+        const colorThree = new THREE.Color(colorHex);
+        const roofColor = colorThree.clone().multiplyScalar(0.70);
+        const plinthH = 0.16;
+
+        let mainMesh;
+        let roofMesh = null;
+        let totalH = plinthH + 1.2;
+        let defaultY = 0;
+
+        if (style === 'open') {
+            // Open Residential Plot: Green lawn turf plinth + perimeter boundary walls + entry pillars
+            const lawnH = 0.22;
+            const lawnGeo = new THREE.BoxGeometry(pWidth * 0.90, lawnH, pDepth * 0.90);
+            const lawnMat = new THREE.MeshStandardMaterial({
+                color: 0x16a34a,
+                roughness: 0.8,
+                metalness: 0.05,
+                emissive: 0x14532d,
+                emissiveIntensity: 0.15
+            });
+            mainMesh = new THREE.Mesh(lawnGeo, lawnMat);
+            defaultY = plinthH + lawnH / 2 + 0.08;
+            mainMesh.position.y = defaultY;
+
+            // Perimeter low boundary wall (0.35m high)
+            const wallMat = new THREE.MeshStandardMaterial({ color: 0x94a3b8, roughness: 0.7 });
+            const wallThick = 0.12;
+            const wallH = 0.35;
+            const wL = new THREE.Mesh(new THREE.BoxGeometry(wallThick, wallH, pDepth * 0.88), wallMat);
+            wL.position.set(-pWidth * 0.44, wallH / 2 + lawnH / 2, 0);
+            mainMesh.add(wL);
+
+            const wR = new THREE.Mesh(new THREE.BoxGeometry(wallThick, wallH, pDepth * 0.88), wallMat);
+            wR.position.set(pWidth * 0.44, wallH / 2 + lawnH / 2, 0);
+            mainMesh.add(wR);
+
+            const wB = new THREE.Mesh(new THREE.BoxGeometry(pWidth * 0.88, wallH, wallThick), wallMat);
+            wB.position.set(0, wallH / 2 + lawnH / 2, -pDepth * 0.44);
+            mainMesh.add(wB);
+
+            // Front entry gate posts with status beacon
+            const postGeo = new THREE.BoxGeometry(0.28, 0.65, 0.28);
+            const postMat = new THREE.MeshStandardMaterial({ color: colorThree, emissive: colorThree, emissiveIntensity: 0.3 });
+            const pL = new THREE.Mesh(postGeo, postMat);
+            pL.position.set(-pWidth * 0.22, 0.32, pDepth * 0.44);
+            mainMesh.add(pL);
+
+            const pR = new THREE.Mesh(postGeo, postMat);
+            pR.position.set(pWidth * 0.22, 0.32, pDepth * 0.44);
+            mainMesh.add(pR);
+
+            totalH = plinthH + lawnH + 0.65;
+
+        } else if (style === 'duplex') {
+            // Contemporary 2-Tier Stacked Duplex with cantilever & rooftop pergola terrace
+            const houseW = pWidth * 0.74;
+            const houseD = pDepth * 0.70;
+            const floor1H = 0.95;
+            const floor2H = 0.90;
+
+            const houseMat = new THREE.MeshStandardMaterial({
+                color: colorThree,
+                roughness: 0.48,
+                metalness: 0.08,
+                emissive: colorThree,
+                emissiveIntensity: 0.14
+            });
+
+            // Ground Floor
+            const f1Geo = new THREE.BoxGeometry(houseW, floor1H, houseD);
+            mainMesh = new THREE.Mesh(f1Geo, houseMat);
+            defaultY = plinthH + floor1H / 2 + 0.08;
+            mainMesh.position.y = defaultY;
+
+            // Cantilevered Upper Floor (shifted slightly)
+            const f2Geo = new THREE.BoxGeometry(houseW * 0.82, floor2H, houseD * 0.82);
+            const f2Mat = new THREE.MeshStandardMaterial({
+                color: colorThree.clone().lerp(new THREE.Color(0xffffff), 0.25),
+                roughness: 0.42,
+                emissive: colorThree,
+                emissiveIntensity: 0.12
+            });
+            const f2Mesh = new THREE.Mesh(f2Geo, f2Mat);
+            f2Mesh.position.set(-houseW * 0.06, floor1H / 2 + floor2H / 2, -houseD * 0.06);
+            f2Mesh.castShadow = true;
+            mainMesh.add(f2Mesh);
+
+            // Rooftop Pergola Beams
+            const pergolaMat = new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.6 });
+            for (let i = -2; i <= 2; i++) {
+                const b = new THREE.Mesh(new THREE.BoxGeometry(houseW * 0.65, 0.08, 0.08), pergolaMat);
+                b.position.set(-houseW * 0.06, floor1H / 2 + floor2H + 0.40, -houseD * 0.06 + (i * houseD * 0.12));
+                mainMesh.add(b);
+            }
+
+            // Glass Balcony Railing
+            const glassMat = new THREE.MeshStandardMaterial({
+                color: 0x38bdf8,
+                roughness: 0.1,
+                metalness: 0.7,
+                transparent: true,
+                opacity: 0.65
+            });
+            const bal = new THREE.Mesh(new THREE.BoxGeometry(houseW * 0.78, 0.32, 0.04), glassMat);
+            bal.position.set(0, floor1H / 2 + 0.16, houseD / 2 + 0.02);
+            mainMesh.add(bal);
+
+            // Panoramic Front Window
+            const winMat = new THREE.MeshStandardMaterial({ color: 0xe0f2fe, emissive: 0x38bdf8, emissiveIntensity: 0.3 });
+            const win = new THREE.Mesh(new THREE.BoxGeometry(houseW * 0.38, 0.55, 0.04), winMat);
+            win.position.set(houseW * 0.15, 0, houseD / 2 + 0.02);
+            mainMesh.add(win);
+
+            totalH = plinthH + floor1H + floor2H + 0.5;
+
+        } else if (style === 'bungalow') {
+            // Classic Single-Floor Sprawling Estate Bungalow with Columned Veranda
+            const houseW = pWidth * 0.80;
+            const houseD = pDepth * 0.76;
+            const houseH = 1.05;
+            const roofH = 0.80;
+
+            const houseMat = new THREE.MeshStandardMaterial({
+                color: colorThree,
+                roughness: 0.55,
+                metalness: 0.05,
+                emissive: colorThree,
+                emissiveIntensity: 0.12
+            });
+            const houseGeo = new THREE.BoxGeometry(houseW, houseH, houseD);
+            mainMesh = new THREE.Mesh(houseGeo, houseMat);
+            defaultY = plinthH + houseH / 2 + 0.08;
+            mainMesh.position.y = defaultY;
+
+            // Wide Overhanging Hipped Tiled Roof
+            const rGeo = new THREE.ConeGeometry(Math.sqrt(Math.pow(houseW * 0.62, 2) + Math.pow(houseD * 0.62, 2)), roofH, 4);
+            rGeo.rotateY(Math.PI / 4);
+            const rMat = new THREE.MeshStandardMaterial({
+                color: roofColor,
+                roughness: 0.45,
+                emissive: roofColor,
+                emissiveIntensity: 0.10
+            });
+            roofMesh = new THREE.Mesh(rGeo, rMat);
+            roofMesh.position.set(0, houseH / 2 + roofH / 2, 0);
+            roofMesh.castShadow = true;
+            mainMesh.add(roofMesh);
+
+            // Front Veranda Porch with 4 White Columns
+            const colMat = new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.3 });
+            const colGeo = new THREE.CylinderGeometry(0.08, 0.08, houseH * 0.88, 8);
+            for (let c = -1.5; c <= 1.5; c += 1.0) {
+                const col = new THREE.Mesh(colGeo, colMat);
+                col.position.set(c * (houseW * 0.22), -houseH * 0.06, houseD / 2 + 0.28);
+                mainMesh.add(col);
+            }
+            // Veranda Roof Overhang
+            const vRoof = new THREE.Mesh(new THREE.BoxGeometry(houseW * 0.84, 0.08, 0.38), rMat);
+            vRoof.position.set(0, houseH / 2 - 0.02, houseD / 2 + 0.18);
+            mainMesh.add(vRoof);
+
+            // Front Arched Door
+            const doorMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.5 });
+            const door = new THREE.Mesh(new THREE.BoxGeometry(houseW * 0.20, 0.68, 0.04), doorMat);
+            door.position.set(0, -houseH / 2 + 0.34, houseD / 2 + 0.02);
+            mainMesh.add(door);
+
+            totalH = plinthH + houseH + roofH;
+
+        } else {
+            // Default 'villa': Architectural 2-story Villa with pitched roof & chimney
+            const houseW = pWidth * 0.72;
+            const houseD = pDepth * 0.68;
+            const houseH = 1.35;
+            const roofH = 1.05;
+
+            const houseMat = new THREE.MeshStandardMaterial({
+                color: colorThree,
+                roughness: 0.52,
+                metalness: 0.05,
+                emissive: colorThree,
+                emissiveIntensity: 0.14,
+                transparent: true,
+                opacity: 0.96,
+                depthWrite: true
+            });
+            const houseGeo = new THREE.BoxGeometry(houseW, houseH, houseD);
+            mainMesh = new THREE.Mesh(houseGeo, houseMat);
+            defaultY = plinthH + houseH / 2 + 0.08;
+            mainMesh.position.y = defaultY;
+
+            // Pitched Hip Roof
+            const roofRadius = Math.sqrt(Math.pow(houseW * 0.58, 2) + Math.pow(houseD * 0.58, 2));
+            const roofGeo = new THREE.ConeGeometry(roofRadius, roofH, 4);
+            roofGeo.rotateY(Math.PI / 4);
+            const rMat = new THREE.MeshStandardMaterial({
+                color: roofColor,
+                roughness: 0.45,
+                metalness: 0.05,
+                emissive: roofColor,
+                emissiveIntensity: 0.08,
+                transparent: true,
+                opacity: 0.96,
+                depthWrite: true
+            });
+            roofMesh = new THREE.Mesh(roofGeo, rMat);
+            roofMesh.position.set(0, houseH / 2 + roofH / 2, 0);
+            roofMesh.castShadow = true;
+            roofMesh.renderOrder = 21;
+            mainMesh.add(roofMesh);
+
+            // Door
+            const doorMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.6 });
+            const door = new THREE.Mesh(new THREE.BoxGeometry(houseW * 0.24, 0.75, 0.06), doorMat);
+            door.position.set(0, -houseH / 2 + 0.38, houseD / 2 + 0.03);
+            mainMesh.add(door);
+
+            // Windows
+            const winMat = new THREE.MeshStandardMaterial({ color: 0xe0f2fe, roughness: 0.2, metalness: 0.6, emissive: 0x38bdf8, emissiveIntensity: 0.25 });
+            const winL = new THREE.Mesh(new THREE.BoxGeometry(houseW * 0.20, 0.42, 0.05), winMat);
+            winL.position.set(-houseW * 0.27, -0.05, houseD / 2 + 0.03);
+            mainMesh.add(winL);
+            const winR = new THREE.Mesh(new THREE.BoxGeometry(houseW * 0.20, 0.42, 0.05), winMat);
+            winR.position.set(houseW * 0.27, -0.05, houseD / 2 + 0.03);
+            mainMesh.add(winR);
+
+            // Chimney
+            const chimney = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.60, 0.32), new THREE.MeshStandardMaterial({ color: 0x475569, roughness: 0.7 }));
+            chimney.position.set(houseW * 0.24, houseH / 2 + roofH * 0.52, -houseD * 0.15);
+            mainMesh.add(chimney);
+
+            totalH = plinthH + houseH + roofH;
+        }
+
+        mainMesh.castShadow = true;
+        mainMesh.receiveShadow = true;
+        mainMesh.renderOrder = 20;
+
+        mainMesh.userData = {
+            plotNo,
+            detail,
+            status,
+            baseColorHex: colorHex,
+            baseColor: colorThree.clone(),
+            roofColor: roofColor.clone(),
+            roofMesh: roofMesh,
+            defaultY: defaultY,
+            pWidth,
+            pDepth,
+            pHeight: totalH,
+            parentGroup: plotGroup,
+            styleKey: style
+        };
+        if (roofMesh) roofMesh.userData = { plotNo, parentMesh: mainMesh };
+
+        return mainMesh;
+    }
+
+    /**
+     * Rebuild a single plot's 3D model with a chosen architectural style
+     */
+    function rebuildPlotModel(plotNo, styleKey) {
+        const oldMesh = plotMeshes[plotNo];
+        const group = plotGroups[plotNo];
+        if (!oldMesh || !group) return;
+
+        customPlotStyles[plotNo] = styleKey;
+        const u = oldMesh.userData;
+
+        // Animate out scale
+        group.remove(oldMesh);
+        if (oldMesh.geometry) oldMesh.geometry.dispose();
+
+        const newMesh = createPlotArchitectureMesh(plotNo, u.detail, u.status, u.baseColorHex, u.pWidth, u.pDepth, styleKey, group);
+        group.add(newMesh);
+        plotMeshes[plotNo] = newMesh;
+
+        // Update plot label height
+        if (plotLabels[plotNo]) {
+            plotLabels[plotNo].position.y = newMesh.userData.pHeight + 1.25;
+        }
+
+        // Quick pop-in animation
+        newMesh.scale.set(0.2, 0.2, 0.2);
+        let scale = 0.2;
+        const growInterval = setInterval(() => {
+            scale += 0.2;
+            if (scale >= 1.0) {
+                scale = 1.0;
+                clearInterval(growInterval);
+            }
+            newMesh.scale.set(scale, scale, scale);
+        }, 16);
+    }
+
+    /**
+     * Apply selected house style to all plots across the entire layout
+     */
+    function applyHouseStyleToAll(styleKey) {
+        globalDefaultStyle = styleKey;
+        Object.keys(plotMeshes).forEach(plotNo => {
+            rebuildPlotModel(plotNo, styleKey);
+        });
+        console.log(`✅ Applied architectural house style '${styleKey}' to all 131 plots.`);
+    }
+
+
+
+    /**
+     * Setup Grand Entrance Arch near Plot No 9 across Eastern 60' Road
+     */
+    function setupEntranceArch() {
+        if (entranceArchGroup) {
+            layoutWorldGroup.remove(entranceArchGroup);
+            entranceArchGroup = null;
+        }
+
+        entranceArchGroup = new THREE.Group();
+        archSpotlights.length = 0;
+
+        // Plot 9 is at (X: 93.60, Z: -33.66).
+        // The Eastern 60' Road is centered at X = 98.0, Z = -33.66.
+        const archX = 98.0;
+        const archZ = -33.66;
+        const spanW = 6.6; // Spans across the road
+        const pillarH = 7.6;
+        const pillarW = 1.4;
+
+        // Pillar Materials: Rich architectural stone & gold accents
+        const stoneMat = new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.55, metalness: 0.1 });
+        const plinthMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.8 });
+        const goldMat = new THREE.MeshStandardMaterial({ color: 0xf59e0b, roughness: 0.25, metalness: 0.85 });
+
+        // 1. Left Pillar (West curb, near Plot 9)
+        const leftX = archX - spanW / 2;
+        const leftPillar = new THREE.Group();
+        leftPillar.position.set(leftX, 0, archZ);
+
+        const basePlinth = new THREE.Mesh(new THREE.BoxGeometry(pillarW * 1.25, 0.6, pillarW * 1.25), plinthMat);
+        basePlinth.position.y = 0.3;
+        leftPillar.add(basePlinth);
+
+        const shaft = new THREE.Mesh(new THREE.BoxGeometry(pillarW, pillarH, pillarW), stoneMat);
+        shaft.position.y = pillarH / 2 + 0.3;
+        shaft.castShadow = true;
+        leftPillar.add(shaft);
+
+        const cap = new THREE.Mesh(new THREE.BoxGeometry(pillarW * 1.2, 0.45, pillarW * 1.2), goldMat);
+        cap.position.y = pillarH + 0.3 + 0.22;
+        leftPillar.add(cap);
+
+        entranceArchGroup.add(leftPillar);
+
+        // 2. Right Pillar (East curb)
+        const rightX = archX + spanW / 2;
+        const rightPillar = leftPillar.clone();
+        rightPillar.position.set(rightX, 0, archZ);
+        entranceArchGroup.add(rightPillar);
+
+        // 3. Overhead Grand Arch Crossbeam
+        const beamW = spanW + pillarW * 1.2;
+        const beamH = 1.35;
+        const beamD = 1.1;
+        const beamMesh = new THREE.Mesh(new THREE.BoxGeometry(beamW, beamH, beamD), stoneMat);
+        beamMesh.position.set(archX, pillarH + 0.3 + 0.45 + beamH / 2, archZ);
+        beamMesh.castShadow = true;
+        entranceArchGroup.add(beamMesh);
+
+        // Curved arch soffit underneath
+        const archCurve = new THREE.CatmullRomCurve3([
+            new THREE.Vector3(leftX + pillarW * 0.4, pillarH * 0.68, archZ),
+            new THREE.Vector3(archX, pillarH + 0.25, archZ),
+            new THREE.Vector3(rightX - pillarW * 0.4, pillarH * 0.68, archZ)
+        ]);
+        const archTube = new THREE.Mesh(new THREE.TubeGeometry(archCurve, 24, 0.22, 8, false), goldMat);
+        entranceArchGroup.add(archTube);
+
+        // Classical Triangular Pediment Crown on Top
+        const pedGeo = new THREE.ConeGeometry(beamW * 0.52, 1.2, 4);
+        pedGeo.rotateY(Math.PI / 4);
+        const pedMesh = new THREE.Mesh(pedGeo, goldMat);
+        pedMesh.position.set(archX, pillarH + 0.3 + 0.45 + beamH + 0.6, archZ);
+        entranceArchGroup.add(pedMesh);
+
+        // 4. Double-Sided Grand Venture Signboard Canvas Texture
+        const signCanvas = document.createElement('canvas');
+        signCanvas.width = 512;
+        signCanvas.height = 128;
+        const ctx = signCanvas.getContext('2d');
+        if (ctx) {
+            ctx.fillStyle = '#0f172a';
+            ctx.fillRect(0, 0, 512, 128);
+            ctx.strokeStyle = '#f59e0b';
+            ctx.lineWidth = 6;
+            ctx.strokeRect(6, 6, 500, 116);
+            ctx.strokeStyle = '#38bdf8';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(12, 12, 488, 104);
+
+            ctx.textAlign = 'center';
+            ctx.fillStyle = '#f59e0b';
+            ctx.font = 'bold 18px sans-serif';
+            ctx.fillText('★ ASPIREALTY INFRA DEVELOPERS ★', 256, 36);
+
+            ctx.fillStyle = '#ffffff';
+            ctx.font = '900 32px sans-serif';
+            ctx.fillText('TADA MEGA VENTURE', 256, 75);
+
+            ctx.fillStyle = '#38bdf8';
+            ctx.font = 'bold 16px sans-serif';
+            ctx.fillText('PREMIUM GATED COMMUNITY • DTCP APPROVED', 256, 105);
+        }
+        const signTex = new THREE.CanvasTexture(signCanvas);
+        const signMat = new THREE.MeshStandardMaterial({
+            map: signTex,
+            roughness: 0.3,
+            metalness: 0.1,
+            emissive: 0xffffff,
+            emissiveMap: signTex,
+            emissiveIntensity: 0.25
+        });
+
+        // Front Face (+Z)
+        const signFront = new THREE.Mesh(new THREE.PlaneGeometry(beamW * 0.88, beamH * 0.72), signMat);
+        signFront.position.set(archX, pillarH + 0.3 + 0.45 + beamH / 2, archZ + beamD / 2 + 0.02);
+        entranceArchGroup.add(signFront);
+
+        // Back Face (-Z)
+        const signBack = signFront.clone();
+        signBack.rotation.y = Math.PI;
+        signBack.position.set(archX, pillarH + 0.3 + 0.45 + beamH / 2, archZ - beamD / 2 - 0.02);
+        entranceArchGroup.add(signBack);
+
+        // 5. Downward Spotlights illuminating the road entrance underneath
+        const initialSpotInt = (currentLightingMode === 'night') ? 2.5 : (currentLightingMode === 'sunset' ? 1.4 : 0.0);
+        [-1.8, 1.8].forEach(dx => {
+            const spot = new THREE.PointLight(0xfef08a, initialSpotInt, 18, 1.8);
+            spot.position.set(archX + dx, pillarH + 0.2, archZ);
+            entranceArchGroup.add(spot);
+            archSpotlights.push(spot);
+        });
+
+        // 6. Modern Security Cabin (Gatehouse) placed on shoulder beside Plot 9
+        const cabinGroup = new THREE.Group();
+        cabinGroup.position.set(archX - spanW / 2 - 3.2, 0, archZ);
+
+        const cabPlinth = new THREE.Mesh(new THREE.BoxGeometry(2.8, 0.2, 2.6), plinthMat);
+        cabPlinth.position.y = 0.1;
+        cabinGroup.add(cabPlinth);
+
+        const cabBody = new THREE.Mesh(new THREE.BoxGeometry(2.5, 2.3, 2.3), new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.4 }));
+        cabBody.position.y = 1.25;
+        cabBody.castShadow = true;
+        cabinGroup.add(cabBody);
+
+        // Glass observation windows
+        const cabGlass = new THREE.Mesh(new THREE.BoxGeometry(2.54, 0.9, 1.6), new THREE.MeshStandardMaterial({
+            color: 0x38bdf8,
+            transparent: true,
+            opacity: 0.75,
+            roughness: 0.1,
+            metalness: 0.9
+        }));
+        cabGlass.position.y = 1.45;
+        cabinGroup.add(cabGlass);
+
+        // Cabin Overhang Roof with Security Beacon
+        const cabRoof = new THREE.Mesh(new THREE.BoxGeometry(3.0, 0.15, 2.8), stoneMat);
+        cabRoof.position.y = 2.45;
+        cabinGroup.add(cabRoof);
+
+        const beaconSphere = new THREE.Mesh(new THREE.SphereGeometry(0.12, 8, 8), new THREE.MeshStandardMaterial({
+            color: 0xef4444,
+            emissive: 0xef4444,
+            emissiveIntensity: 2.0
+        }));
+        beaconSphere.position.set(0, 2.60, 0);
+        cabinGroup.add(beaconSphere);
+
+        entranceArchGroup.add(cabinGroup);
+
+        // 7. Automated Boom Barrier Gates across entry/exit lanes
+        const barrierMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.3 });
+        const postMat2 = new THREE.MeshStandardMaterial({ color: 0xf59e0b, roughness: 0.4 });
+        
+        // Left barrier motor
+        const bMotL = new THREE.Mesh(new THREE.BoxGeometry(0.35, 1.0, 0.35), postMat2);
+        bMotL.position.set(archX - 0.4, 0.5, archZ + 1.2);
+        entranceArchGroup.add(bMotL);
+
+        // Barrier Arm
+        const armL = new THREE.Mesh(new THREE.BoxGeometry(2.6, 0.08, 0.08), barrierMat);
+        armL.position.set(archX - 1.7, 0.95, archZ + 1.2);
+        entranceArchGroup.add(armL);
+
+        // Right barrier motor
+        const bMotR = new THREE.Mesh(new THREE.BoxGeometry(0.35, 1.0, 0.35), postMat2);
+        bMotR.position.set(archX + 0.4, 0.5, archZ - 1.2);
+        entranceArchGroup.add(bMotR);
+
+        const armR = new THREE.Mesh(new THREE.BoxGeometry(2.6, 0.08, 0.08), barrierMat);
+        armR.position.set(archX + 1.7, 0.95, archZ - 1.2);
+        entranceArchGroup.add(armR);
+
+        // 8. Flanking Stainless Steel Flagpoles & Flower Planters
+        [-spanW / 2 - 1.5, spanW / 2 + 1.5].forEach((dx, idx) => {
+            const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.06, 7.5, 8), new THREE.MeshStandardMaterial({ color: 0xffffff, metalness: 0.9, roughness: 0.2 }));
+            pole.position.set(archX + dx, 3.75, archZ + (idx === 0 ? 1.5 : -1.5));
+            entranceArchGroup.add(pole);
+
+            // Planter box
+            const planter = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.45, 1.4), new THREE.MeshStandardMaterial({ color: 0x475569, roughness: 0.8 }));
+            planter.position.set(archX + dx, 0.22, archZ);
+            entranceArchGroup.add(planter);
+
+            // Shrub in planter
+            const shrub = new THREE.Mesh(new THREE.DodecahedronGeometry(0.55), new THREE.MeshStandardMaterial({ color: 0x15803d, roughness: 0.8 }));
+            shrub.position.set(archX + dx, 0.65, archZ);
+            entranceArchGroup.add(shrub);
+        });
+
+        layoutWorldGroup.add(entranceArchGroup);
+        console.log('✅ Grand Entrance Arch installed near Plot No 9 across Eastern 60 Road.');
+    }
+
+    /**
+     * Setup Avenue Landscaping (Royal Palms & Flowering Trees) along road curbs
+     */
+    function setupAvenueLandscaping() {
+        if (landscapingGroup) {
+            layoutWorldGroup.remove(landscapingGroup);
+            landscapingGroup = null;
+        }
+
+        landscapingGroup = new THREE.Group();
+        treeUplights.length = 0;
+
+        // Shared geometries & materials for performance
+        const palmTrunkGeo = new THREE.CylinderGeometry(0.18, 0.32, 5.2, 7);
+        const palmTrunkMat = new THREE.MeshStandardMaterial({ color: 0x78350f, roughness: 0.9 });
+        const frondMat = new THREE.MeshStandardMaterial({ color: 0x15803d, roughness: 0.6, side: THREE.DoubleSide });
+        const curbPlanterGeo = new THREE.CylinderGeometry(0.75, 0.85, 0.25, 12);
+        const curbPlanterMat = new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.8 });
+
+        function createRoyalPalm() {
+            const palm = new THREE.Group();
+            // Stone curb planter
+            const planter = new THREE.Mesh(curbPlanterGeo, curbPlanterMat);
+            planter.position.y = 0.12;
+            palm.add(planter);
+
+            // Trunk with slight organic lean
+            const trunk = new THREE.Mesh(palmTrunkGeo, palmTrunkMat);
+            trunk.position.y = 2.6;
+            trunk.rotation.z = (Math.random() - 0.5) * 0.06;
+            trunk.castShadow = true;
+            palm.add(trunk);
+
+            // Crown of 12 cascading tropical fronds
+            const crown = new THREE.Group();
+            crown.position.y = 5.1;
+            for (let i = 0; i < 12; i++) {
+                const angle = (i / 12) * Math.PI * 2;
+                const frond = new THREE.Mesh(new THREE.ConeGeometry(0.55, 2.2, 4), frondMat);
+                frond.position.set(Math.cos(angle) * 0.85, -0.3, Math.sin(angle) * 0.85);
+                frond.rotation.y = angle;
+                frond.rotation.x = Math.PI / 2.8;
+                frond.castShadow = true;
+                crown.add(frond);
+            }
+            palm.add(crown);
+
+            return palm;
+        }
+
+        function createFloweringTree() {
+            const tree = new THREE.Group();
+            const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.32, 3.8, 6), palmTrunkMat);
+            trunk.position.y = 1.9;
+            trunk.castShadow = true;
+            tree.add(trunk);
+
+            const canopy = new THREE.Mesh(new THREE.DodecahedronGeometry(1.6), new THREE.MeshStandardMaterial({
+                color: (Math.random() > 0.4) ? 0x10b981 : 0xfbbf24,
+                roughness: 0.75
+            }));
+            canopy.position.y = 4.2;
+            canopy.castShadow = true;
+            tree.add(canopy);
+            return tree;
+        }
+
+        // Surveyed safe curb coordinates along avenues (leaving driving tarmac clear)
+        const landscapePositions = [
+            // Avenue 1
+            { x: -68.8, z: -38.0, type: 'palm' }, { x: -65.2, z: -20.0, type: 'tree' }, { x: -68.8, z: -4.0, type: 'palm' }, { x: -65.2, z: 10.0, type: 'palm' },
+            // Avenue 2
+            { x: -46.8, z: -38.0, type: 'tree' }, { x: -43.2, z: -20.0, type: 'palm' }, { x: -46.8, z: -4.0, type: 'palm' }, { x: -43.2, z: 10.0, type: 'tree' },
+            // Avenue 3
+            { x: -23.6, z: -38.0, type: 'palm' }, { x: -20.0, z: -20.0, type: 'tree' }, { x: -23.6, z: 2.0, type: 'palm' }, { x: -20.0, z: 24.0, type: 'tree' }, { x: -23.6, z: 46.0, type: 'palm' },
+            // Avenue 4 (Central Avenue)
+            { x: -0.5, z: -38.0, type: 'palm' }, { x: 1.8, z: -20.0, type: 'tree' }, { x: -0.5, z: 2.0, type: 'palm' }, { x: 1.8, z: 24.0, type: 'palm' }, { x: -0.5, z: 46.0, type: 'tree' },
+            // Avenue 5
+            { x: 21.8, z: -38.0, type: 'tree' }, { x: 24.2, z: -20.0, type: 'palm' }, { x: 21.8, z: 2.0, type: 'tree' }, { x: 24.2, z: 24.0, type: 'palm' }, { x: 21.8, z: 46.0, type: 'palm' },
+            // Avenue 6
+            { x: 45.2, z: -38.0, type: 'palm' }, { x: 48.8, z: -20.0, type: 'tree' }, { x: 45.2, z: 2.0, type: 'palm' }, { x: 48.8, z: 24.0, type: 'tree' }, { x: 45.2, z: 46.0, type: 'palm' },
+            // Avenue 7
+            { x: 68.2, z: -38.0, type: 'palm' }, { x: 71.8, z: -28.0, type: 'tree' }, { x: 68.2, z: -18.0, type: 'palm' },
+            // Central 40' Boulevard
+            { x: -55.0, z: -13.2, type: 'palm' }, { x: -35.0, z: -8.2, type: 'palm' }, { x: -10.0, z: -13.2, type: 'tree' },
+            { x: 15.0, z: -8.2, type: 'palm' }, { x: 40.0, z: -13.2, type: 'palm' }, { x: 65.0, z: -8.2, type: 'tree' }, { x: 85.0, z: -13.2, type: 'palm' },
+            // Entrance Parkway near Arch & Plot 9
+            { x: 95.8, z: -42.0, type: 'palm' }, { x: 100.4, z: -42.0, type: 'palm' },
+            { x: 95.8, z: -24.0, type: 'palm' }, { x: 100.4, z: -24.0, type: 'palm' }
+        ];
+
+        landscapePositions.forEach((pos, idx) => {
+            const item = (pos.type === 'palm') ? createRoyalPalm() : createFloweringTree();
+            item.position.set(pos.x, 0.08, pos.z);
+            landscapingGroup.add(item);
+
+            // Select palm uplights for sunset/night ambiance
+            if (idx % 4 === 0) {
+                const initialTreeInt = (currentLightingMode === 'night') ? 1.2 : (currentLightingMode === 'sunset' ? 0.6 : 0.0);
+                const uplight = new THREE.PointLight(0x86efac, initialTreeInt, 12, 2.0);
+                uplight.position.set(pos.x, 0.4, pos.z);
+                landscapingGroup.add(uplight);
+                treeUplights.push(uplight);
+            }
+        });
+
+        layoutWorldGroup.add(landscapingGroup);
+        console.log(`✅ Landscaped ${landscapePositions.length} royal palms and flowering trees along venture avenues.`);
+    }
+
+    /**
+     * First-Person Walk Mode Controls & Simulation
+     */
+    function enterWalkMode() {
+        if (isWalkModeActive || !camera || !controls) return;
+        isWalkModeActive = true;
+
+        // Remember orbit state to restore upon exit
+        preWalkCamPos = camera.position.clone();
+        preWalkTarget = controls.target.clone();
+
+        controls.enabled = false;
+
+        // Spawn player right at the Grand Entrance Arch near Plot No 9
+        camera.position.set(98.0, 1.75, -24.0);
+        walkYaw = Math.PI * 0.90; // Face looking into the layout towards South-West
+        walkPitch = -0.04;
+        camera.rotation.set(walkPitch, walkYaw, 0, 'YXZ');
+
+        // Update UI
+        const walkBtn = document.getElementById('threeWalkModeBtn');
+        if (walkBtn) walkBtn.classList.add('active');
+
+        document.querySelectorAll('.btn-cam-preset').forEach(b => b.classList.remove('active'));
+
+        const hud = document.getElementById('threeWalkHud');
+        if (hud) hud.classList.add('active');
+
+        const guide = document.getElementById('threeControlsGuide');
+        if (guide) guide.style.display = 'none';
+
+        // Check if mobile/touch
+        const isTouch = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+        const dpad = document.getElementById('threeWalkTouchDpad');
+        if (dpad && isTouch) dpad.classList.add('show');
+
+        // Temporarily hide floating plot number billboard sprites for an immersive street view
+        Object.values(plotLabels).forEach(lbl => {
+            if (lbl) lbl.visible = false;
+        });
+
+        console.log('🚶 Walk Mode: Activated. Use WASD / Arrow keys or Touch D-Pad to walk. Drag mouse to look.');
+    }
+
+    function exitWalkMode() {
+        if (!isWalkModeActive) return;
+        isWalkModeActive = false;
+
+        // Restore floating plot numbers
+        Object.values(plotLabels).forEach(lbl => {
+            if (lbl) lbl.visible = true;
+        });
+
+        if (controls) {
+            controls.enabled = true;
+            if (preWalkCamPos && preWalkTarget) {
+                camera.position.copy(preWalkCamPos);
+                controls.target.copy(preWalkTarget);
+            } else {
+                const preset = getCameraPreset('overview');
+                camera.position.copy(preset.pos);
+                controls.target.copy(preset.target);
+            }
+            controls.update();
+        }
+
+        const walkBtn = document.getElementById('threeWalkModeBtn');
+        if (walkBtn) walkBtn.classList.remove('active');
+
+        const hud = document.getElementById('threeWalkHud');
+        if (hud) hud.classList.remove('active');
+
+        const guide = document.getElementById('threeControlsGuide');
+        if (guide) guide.style.display = 'flex';
+
+        const dpad = document.getElementById('threeWalkTouchDpad');
+        if (dpad) dpad.classList.remove('show');
+
+        const overBtn = document.querySelector('.btn-cam-preset[data-preset="overview"]');
+        if (overBtn) overBtn.classList.add('active');
+
+        console.log('🚶 Walk Mode: Exited to Orbit Controls.');
+    }
+
+    function updateWalkMode(delta) {
+        if (!isWalkModeActive || !camera) return;
+
+        // Determine input velocity
+        let moveForward = 0;
+        let moveSide = 0;
+
+        if (walkKeys['KeyW'] || walkKeys['ArrowUp']) moveForward += 1;
+        if (walkKeys['KeyS'] || walkKeys['ArrowDown']) moveForward -= 1;
+        if (walkKeys['KeyA'] || walkKeys['ArrowLeft']) moveSide -= 1;
+        if (walkKeys['KeyD'] || walkKeys['ArrowRight']) moveSide += 1;
+
+        // Add virtual touch D-pad
+        moveForward += walkTouchDir.z;
+        moveSide += walkTouchDir.x;
+
+        const isMoving = (moveForward !== 0 || moveSide !== 0);
+        const speed = (walkKeys['ShiftLeft'] || walkKeys['ShiftRight']) ? 20.0 : 10.5;
+
+        if (isMoving) {
+            // Forward and Right vectors from yaw
+            const fX = -Math.sin(walkYaw);
+            const fZ = -Math.cos(walkYaw);
+            const rX = Math.cos(walkYaw);
+            const rZ = -Math.sin(walkYaw);
+
+            let dx = (fX * moveForward + rX * moveSide);
+            let dz = (fZ * moveForward + rZ * moveSide);
+            const len = Math.sqrt(dx * dx + dz * dz) || 1;
+            dx = (dx / len) * speed * delta;
+            dz = (dz / len) * speed * delta;
+
+            camera.position.x += dx;
+            camera.position.z += dz;
+
+            // Subtle human head-bob
+            walkBobTimer += delta * 11;
+            camera.position.y = 1.75 + Math.sin(walkBobTimer) * 0.05;
+        } else {
+            camera.position.y = 1.75;
+        }
+
+        // Clamp inside layout bounds
+        camera.position.x = Math.max(-115, Math.min(115, camera.position.x));
+        camera.position.z = Math.max(-85, Math.min(85, camera.position.z));
+
+        // Apply first-person camera rotation
+        camera.rotation.set(walkPitch, walkYaw, 0, 'YXZ');
+    }
+
+    function setupWalkInputListeners(container) {
+        window.addEventListener('keydown', (e) => {
+            if (e.target && ['INPUT', 'TEXTAREA'].includes(e.target.tagName)) return;
+            if (e.code === 'Escape' && isWalkModeActive) {
+                exitWalkMode();
+                return;
+            }
+            if (isWalkModeActive) {
+                walkKeys[e.code] = true;
+            }
+        });
+
+        window.addEventListener('keyup', (e) => {
+            if (isWalkModeActive) {
+                walkKeys[e.code] = false;
+            }
+        });
+
+        // Mouse drag look when walk mode is active
+        if (container) {
+            container.addEventListener('mousedown', (e) => {
+                if (isWalkModeActive && e.button === 0) {
+                    isWalkDragging = true;
+                    walkDragPrev.x = e.clientX;
+                    walkDragPrev.y = e.clientY;
+                }
+            });
+
+            window.addEventListener('mousemove', (e) => {
+                if (isWalkModeActive && isWalkDragging) {
+                    const dx = e.clientX - walkDragPrev.x;
+                    const dy = e.clientY - walkDragPrev.y;
+                    walkDragPrev.x = e.clientX;
+                    walkDragPrev.y = e.clientY;
+
+                    walkYaw -= dx * 0.0035;
+                    walkPitch = Math.max(-Math.PI / 3, Math.min(Math.PI / 3, walkPitch - dy * 0.0035));
+                }
+            });
+
+            window.addEventListener('mouseup', () => {
+                isWalkDragging = false;
+            });
+
+            // Touch drag look on mobile
+            container.addEventListener('touchstart', (e) => {
+                if (isWalkModeActive && e.touches.length === 1) {
+                    isWalkDragging = true;
+                    walkDragPrev.x = e.touches[0].clientX;
+                    walkDragPrev.y = e.touches[0].clientY;
+                }
+            }, { passive: true });
+
+            container.addEventListener('touchmove', (e) => {
+                if (isWalkModeActive && isWalkDragging && e.touches.length === 1) {
+                    const dx = e.touches[0].clientX - walkDragPrev.x;
+                    const dy = e.touches[0].clientY - walkDragPrev.y;
+                    walkDragPrev.x = e.touches[0].clientX;
+                    walkDragPrev.y = e.touches[0].clientY;
+
+                    walkYaw -= dx * 0.0045;
+                    walkPitch = Math.max(-Math.PI / 3, Math.min(Math.PI / 3, walkPitch - dy * 0.0045));
+                }
+            }, { passive: true });
+
+            container.addEventListener('touchend', () => {
+                isWalkDragging = false;
+            });
+        }
+    }
+
 
     /**
      * Setup Architectural LED Street Lights along all layout roads
@@ -1376,6 +2163,7 @@
         });
 
         window.addEventListener('resize', onWindowResize);
+        setupWalkInputListeners(container);
     }
 
     function onWindowResize() {
@@ -1530,6 +2318,11 @@
             // Animate moving vehicles across layout roads
             updateVehicles(delta);
 
+            // First-person walkthrough camera simulation
+            if (isWalkModeActive) {
+                updateWalkMode(delta);
+            }
+
             if (isCameraAnimating) {
                 cameraAnimProgress += CAMERA_ANIM_SPEED;
                 if (cameraAnimProgress >= 1) {
@@ -1648,7 +2441,61 @@
                         <div>W: <strong style="color: #fff;">${dimW}</strong></div>
                     </div>
                 </div>
+
+                <!-- 3D House Customization Section -->
+                <div class="house-style-section">
+                    <div class="house-style-title">
+                        <span><i class="fa-solid fa-house-chimney" style="color: #38bdf8;"></i> House Style Customizer</span>
+                        <span style="font-size: 9.5px; color: #94a3b8;">Real-Time 3D</span>
+                    </div>
+                    <div class="house-style-grid">
+                        <div class="house-style-card ${(customPlotStyles[plotNo] || globalDefaultStyle || 'villa') === 'villa' ? 'active' : ''}" data-style="villa" title="Modern Villa with pitched hip roof & panoramic windows">
+                            <i class="fa-solid fa-hotel house-style-icon"></i>
+                            <div class="house-style-name">Modern Villa</div>
+                            <div class="house-style-desc">Gabled Roof & Porch</div>
+                        </div>
+                        <div class="house-style-card ${(customPlotStyles[plotNo] || globalDefaultStyle) === 'duplex' ? 'active' : ''}" data-style="duplex" title="Contemporary Duplex with cantilevered floor & rooftop pergola">
+                            <i class="fa-solid fa-building house-style-icon"></i>
+                            <div class="house-style-name">Luxury Duplex</div>
+                            <div class="house-style-desc">2-Tier & Pergola</div>
+                        </div>
+                        <div class="house-style-card ${(customPlotStyles[plotNo] || globalDefaultStyle) === 'bungalow' ? 'active' : ''}" data-style="bungalow" title="Sprawling Estate Bungalow with wrap-around columned veranda">
+                            <i class="fa-solid fa-house-chimney-window house-style-icon"></i>
+                            <div class="house-style-name">Bungalow</div>
+                            <div class="house-style-desc">Porch & Columns</div>
+                        </div>
+                        <div class="house-style-card ${(customPlotStyles[plotNo] || globalDefaultStyle) === 'open' ? 'active' : ''}" data-style="open" title="Open Residential Plot with green turf lawn & boundary wall">
+                            <i class="fa-solid fa-vector-square house-style-icon"></i>
+                            <div class="house-style-name">Open Plot</div>
+                            <div class="house-style-desc">Fenced Lawn Turf</div>
+                        </div>
+                    </div>
+                    <div style="display: flex; gap: 6px; margin-top: 8px;">
+                        <button class="three-drawer-btn" id="threeApplyStyleToAllBtn" style="background: rgba(56, 189, 248, 0.12); border: 1px solid rgba(56, 189, 248, 0.35); color: #7dd3fc; font-size: 10.5px; padding: 6px;">
+                            <i class="fa-solid fa-city"></i> Apply Style to All 131 Plots
+                        </button>
+                    </div>
+                </div>
             `;
+
+            // Attach House Style click listeners
+            bodyEl.querySelectorAll('.house-style-card').forEach(card => {
+                card.addEventListener('click', () => {
+                    const newStyle = card.dataset.style;
+                    bodyEl.querySelectorAll('.house-style-card').forEach(c => c.classList.remove('active'));
+                    card.classList.add('active');
+                    rebuildPlotModel(plotNo, newStyle);
+                });
+            });
+
+            const applyAllBtn = document.getElementById('threeApplyStyleToAllBtn');
+            if (applyAllBtn) {
+                applyAllBtn.onclick = () => {
+                    const activeCard = bodyEl.querySelector('.house-style-card.active');
+                    const st = activeCard ? activeCard.dataset.style : 'villa';
+                    applyHouseStyleToAll(st);
+                };
+            }
         }
 
         const openFullModalBtn = document.getElementById('threeOpenFullPlotModalBtn');
@@ -1826,6 +2673,7 @@
         // Camera Presets
         document.querySelectorAll('.btn-cam-preset').forEach(btn => {
             btn.addEventListener('click', () => {
+                if (isWalkModeActive) exitWalkMode();
                 document.querySelectorAll('.btn-cam-preset').forEach(b => b.classList.remove('active'));
                 btn.classList.add('active');
                 const presetKey = btn.dataset.preset;
@@ -1835,6 +2683,47 @@
                 }
             });
         });
+
+        // First-Person Walk Mode Button
+        const walkModeBtn = document.getElementById('threeWalkModeBtn');
+        if (walkModeBtn) {
+            walkModeBtn.addEventListener('click', () => {
+                if (isWalkModeActive) {
+                    exitWalkMode();
+                } else {
+                    enterWalkMode();
+                }
+            });
+        }
+
+        // Exit Walk Mode Button in HUD
+        const exitWalkBtn = document.getElementById('threeExitWalkBtn');
+        if (exitWalkBtn) {
+            exitWalkBtn.addEventListener('click', exitWalkMode);
+        }
+
+        // Touch D-Pad for Mobile Walk
+        const touchUp = document.getElementById('touchWalkUp');
+        const touchDown = document.getElementById('touchWalkDown');
+        const touchLeft = document.getElementById('touchWalkLeft');
+        const touchRight = document.getElementById('touchWalkRight');
+
+        function bindTouchDir(el, x, z) {
+            if (!el) return;
+            const setDir = (active) => {
+                walkTouchDir.x = active ? x : 0;
+                walkTouchDir.z = active ? z : 0;
+            };
+            el.addEventListener('mousedown', () => setDir(true));
+            el.addEventListener('mouseup', () => setDir(false));
+            el.addEventListener('mouseleave', () => setDir(false));
+            el.addEventListener('touchstart', (e) => { e.preventDefault(); setDir(true); }, { passive: false });
+            el.addEventListener('touchend', (e) => { e.preventDefault(); setDir(false); }, { passive: false });
+        }
+        bindTouchDir(touchUp, 0, 1);
+        bindTouchDir(touchDown, 0, -1);
+        bindTouchDir(touchLeft, -1, 0);
+        bindTouchDir(touchRight, 1, 0);
 
         // Lighting Mode Buttons
         document.querySelectorAll('.btn-light-mode').forEach(btn => {
@@ -1944,5 +2833,9 @@
     window.focus3DPlot = selectPlot;
     window.toggle3DBlueprint = toggleBlueprintLayout;
     window.toggle3DXRay = toggleXRayMode;
+    window.enter3DWalkMode = enterWalkMode;
+    window.exit3DWalkMode = exitWalkMode;
+    window.customizePlotHouseStyle = rebuildPlotModel;
+    window.applyHouseStyleToAllPlots = applyHouseStyleToAll;
 
 })();

@@ -495,10 +495,13 @@
                             <i class="fa-solid fa-cubes"></i> Isometric
                         </button>
                         <button class="toolbar-btn btn-cam-preset" data-preset="lowAngle" title="Ground Eye-level Walkthrough">
-                            <i class="fa-solid fa-person-walking"></i> Ground
+                            <i class="fa-solid fa-road"></i> Ground
                         </button>
                         <button class="toolbar-btn btn-cam-preset" data-preset="topDown" title="Top-Down Plan View">
                             <i class="fa-solid fa-compass"></i> Top-Down
+                        </button>
+                        <button class="toolbar-btn btn-walk-mode" id="threeWalkModeBtn" title="First-Person Street Walkthrough (WASD / Arrows)">
+                            <i class="fa-solid fa-person-walking"></i> Walk Mode
                         </button>
                     </div>
 
@@ -564,9 +567,41 @@
                 </div>
 
                 <!-- Bottom Controls Guide -->
-                <div class="three-controls-guide">
+                <div class="three-controls-guide" id="threeControlsGuide">
                     <i class="fa-solid fa-computer-mouse" style="color: #38bdf8;"></i>
                     <span><strong>Left-Click + Drag:</strong> Orbit &bull; <strong>Right-Click:</strong> Pan &bull; <strong>Scroll:</strong> Zoom &bull; <strong>Click Plot:</strong> Inspect</span>
+                </div>
+
+                <!-- First-Person Walk Mode HUD Overlay -->
+                <div class="three-walk-hud" id="threeWalkHud">
+                    <span style="font-weight: 800; color: #34d399;"><i class="fa-solid fa-person-walking"></i> Walk Mode</span>
+                    <div class="three-walk-keys">
+                        <span>Move:</span>
+                        <span class="three-walk-key">W</span>
+                        <span class="three-walk-key">A</span>
+                        <span class="three-walk-key">S</span>
+                        <span class="three-walk-key">D</span>
+                        <span style="margin-left: 4px;">Run:</span>
+                        <span class="three-walk-key">Shift</span>
+                        <span style="margin-left: 4px;">Look:</span>
+                        <span>Drag Mouse</span>
+                    </div>
+                    <button class="three-exit-walk-btn" id="threeExitWalkBtn" title="Exit Walk Mode (Esc)">
+                        <i class="fa-solid fa-arrow-left"></i> Exit Walk
+                    </button>
+                </div>
+
+                <!-- Mobile Virtual Touch D-Pad for Walk Mode -->
+                <div class="three-walk-touch-dpad" id="threeWalkTouchDpad">
+                    <div></div>
+                    <div class="touch-btn" id="touchWalkUp">▲</div>
+                    <div></div>
+                    <div class="touch-btn" id="touchWalkLeft">◀</div>
+                    <div></div>
+                    <div class="touch-btn" id="touchWalkRight">▶</div>
+                    <div></div>
+                    <div class="touch-btn" id="touchWalkDown">▼</div>
+                    <div></div>
                 </div>
 
                 <!-- Hover Tooltip -->
