@@ -241,50 +241,93 @@
      */
     function createProceduralGroundTexture() {
         const canvas = document.createElement('canvas');
-        canvas.width = 1024;
-        canvas.height = 768;
+        canvas.width = 2048;
+        canvas.height = 1536;
         const ctx = canvas.getContext('2d');
 
-        // Background dark estate lawn
-        ctx.fillStyle = '#1e293b';
-        ctx.fillRect(0, 0, 1024, 768);
+        // Crisp white blueprint paper background
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, 2048, 1536);
 
-        // Blueprint Grid lines
-        ctx.strokeStyle = 'rgba(56, 189, 248, 0.15)';
+        // Subtle architectural grid
+        ctx.strokeStyle = '#e2e8f0';
         ctx.lineWidth = 1;
-        for (let x = 0; x <= 1024; x += 32) {
+        for (let x = 0; x <= 2048; x += 64) {
             ctx.beginPath();
             ctx.moveTo(x, 0);
-            ctx.lineTo(x, 768);
+            ctx.lineTo(x, 1536);
             ctx.stroke();
         }
-        for (let y = 0; y <= 768; y += 32) {
+        for (let y = 0; y <= 1536; y += 64) {
             ctx.beginPath();
             ctx.moveTo(0, y);
-            ctx.lineTo(1024, y);
+            ctx.lineTo(2048, y);
             ctx.stroke();
         }
 
-        // Main Roads network simulation
-        ctx.fillStyle = '#0f172a';
-        ctx.fillRect(80, 330, 864, 40); // Main East-West road
-        ctx.fillRect(480, 60, 50, 640);  // Main North-South road
+        // Main Avenue Roads
+        ctx.fillStyle = '#334155';
+        ctx.fillRect(160, 660, 1728, 80); // Main East-West Road
+        ctx.fillRect(960, 120, 100, 1280); // Main North-South Road
 
         // Road markings
-        ctx.strokeStyle = '#facc15';
-        ctx.lineWidth = 2;
-        ctx.setLineDash([12, 12]);
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 3;
+        ctx.setLineDash([20, 20]);
         ctx.beginPath();
-        ctx.moveTo(80, 350);
-        ctx.lineTo(944, 350);
+        ctx.moveTo(160, 700);
+        ctx.lineTo(1888, 700);
         ctx.stroke();
         ctx.beginPath();
-        ctx.moveTo(505, 60);
-        ctx.lineTo(505, 700);
+        ctx.moveTo(1010, 120);
+        ctx.lineTo(1010, 1400);
         ctx.stroke();
         ctx.setLineDash([]);
 
+        // Road Text Labels
+        ctx.fillStyle = '#f8fafc';
+        ctx.font = 'bold 22px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('40 FEET MAIN ROAD', 550, 700);
+        ctx.fillText('40 FEET MAIN ROAD', 1450, 700);
+
+        // Layout Outer Boundary
+        ctx.strokeStyle = '#0284c7';
+        ctx.lineWidth = 8;
+        ctx.strokeRect(40, 40, 1968, 1456);
+
+        // Header Title
+        ctx.fillStyle = '#0f172a';
+        ctx.font = 'bold 36px "Plus Jakarta Sans", sans-serif';
+        ctx.textAlign = 'left';
+        ctx.fillText('TADA APPROVED DIGITAL LAYOUT MODEL', 70, 90);
+
+        // Draw Plot Parcels & numbers from plotCoordinates
+        const coordsSource = (typeof plotCoordinates !== 'undefined') ? plotCoordinates : {};
+        ctx.lineWidth = 2;
+        ctx.strokeStyle = '#0284c7';
+        ctx.font = 'bold 18px "Plus Jakarta Sans", sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+
+        Object.keys(coordsSource).forEach(pNo => {
+            const c = coordsSource[pNo];
+            if (!c) return;
+            const px = (c.left / 1024) * 2048;
+            const py = (c.top / 768) * 1536;
+            const w = 48;
+            const h = 36;
+            ctx.fillStyle = '#f0f9ff';
+            ctx.fillRect(px - w/2, py - h/2, w, h);
+            ctx.strokeRect(px - w/2, py - h/2, w, h);
+            ctx.fillStyle = '#0369a1';
+            ctx.fillText(pNo, px, py);
+        });
+
         const texture = new THREE.CanvasTexture(canvas);
+        texture.minFilter = THREE.LinearFilter;
+        texture.magFilter = THREE.LinearFilter;
         return texture;
     }
 
@@ -480,19 +523,18 @@
             texLoader.setCrossOrigin('');
         }
 
-        // Default procedural texture first to guarantee visibility
+        // Default procedural texture first to guarantee instant visibility
         const fallbackTex = createProceduralGroundTexture();
-        const layoutMat = new THREE.MeshStandardMaterial({
+        const layoutMat = new THREE.MeshBasicMaterial({
             map: fallbackTex,
-            roughness: 0.75,
-            metalness: 0.05,
-            color: 0xffffff
+            color: 0xffffff,
+            side: THREE.DoubleSide
         });
 
         groundMesh = new THREE.Mesh(layoutGeo, layoutMat);
         groundMesh.rotation.x = -Math.PI / 2;
         groundMesh.position.y = 0;
-        groundMesh.receiveShadow = true;
+        groundMesh.receiveShadow = false;
         scene.add(groundMesh);
 
         function applyLayoutTexture(tex) {
@@ -511,7 +553,15 @@
             }
         }
 
-        // Load optimized 2K white-backed blueprint layout texture with fallbacks
+        // Priority 1: Load from embedded Base64 (100% works locally on file:// without CORS and offline)
+        if (typeof TADA_LAYOUT_TEXTURE_B64 !== 'undefined' && TADA_LAYOUT_TEXTURE_B64) {
+            texLoader.load(TADA_LAYOUT_TEXTURE_B64, (tex) => {
+                applyLayoutTexture(tex);
+                console.log('✅ Loaded Tada 3D Blueprint layout via embedded Base64 URI.');
+            });
+        }
+
+        // Priority 2: External texture fallback/supplement
         texLoader.load(
             'map_layout_3d_white.webp?v=1.9.0',
             (tex) => {
@@ -1141,6 +1191,23 @@
         if (btn) btn.classList.toggle('active', isXRayMode);
     }
 
+    let isPlotsVisible = true;
+
+    /**
+     * Toggle visibility of 3D plot parcels to view bare layout map
+     */
+    function togglePlotsVisibility() {
+        isPlotsVisible = !isPlotsVisible;
+        Object.values(plotMeshes).forEach(mesh => {
+            if (mesh) mesh.visible = isPlotsVisible;
+        });
+        Object.values(plotLabels).forEach(label => {
+            if (label) label.visible = isPlotsVisible;
+        });
+        const btn = document.getElementById('threeSoloLayoutBtn');
+        if (btn) btn.classList.toggle('active', !isPlotsVisible);
+    }
+
     /**
      * Setup Modal Controls (Buttons, Presets, Filters, Lighting, Search)
      */
@@ -1214,6 +1281,12 @@
         const xRayBtn = document.getElementById('threeXRayBtn');
         if (xRayBtn) {
             xRayBtn.addEventListener('click', toggleXRayMode);
+        }
+
+        // Layout Only (Hide/Show Plots) Button
+        const soloBtn = document.getElementById('threeSoloLayoutBtn');
+        if (soloBtn) {
+            soloBtn.addEventListener('click', togglePlotsVisibility);
         }
 
         // Auto-Rotate Toggle
