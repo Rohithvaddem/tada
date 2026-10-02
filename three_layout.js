@@ -901,47 +901,47 @@
             return lightObj;
         }
 
-        // Exactly 2 architectural street lights per road strictly on road curbs, facing inward over the road (10 roads = 20 lights)
+        // Exactly 2 architectural street lights per road at the ENDS of each road on curbs, facing inward over the road (10 roads = 20 lights)
         const streetLightPositions = [
-            // Road 1: Central 40' Main Road (Center Z = -10.7)
-            { x: -25.0, z: -12.9, armAngle: 0 },         // North curb, arm points South (+Z) over road
-            { x: 42.0,  z: -8.5,  armAngle: Math.PI },   // South curb, arm points North (-Z) over road
+            // Road 1: Central 40' Main Road (Center Z = -10.7) - West End and East End
+            { x: -75.0, z: -12.8, armAngle: 0 },         // West End (North curb, arm points South +Z over road)
+            { x: 92.0,  z: -8.6,  armAngle: Math.PI },   // East End (South curb, arm points North -Z over road)
 
-            // Road 2: Southern 40' Road (Center Z = 66.5)
-            { x: 5.0,  z: 64.8, armAngle: 0 },           // North curb, arm points South (+Z) over road
-            { x: 48.0, z: 67.0, armAngle: Math.PI },     // South curb, arm points North (-Z) over road
+            // Road 2: Southern 40' Road (Center Z = 66.5) - West End and East End
+            { x: -26.0, z: 64.8, armAngle: 0 },          // West End (North curb, arm points South +Z over road)
+            { x: 78.0,  z: 67.0, armAngle: Math.PI },    // East End (South curb, arm points North -Z over road)
 
-            // Road 3: Avenue 1 (Center X = -67.0)
-            { x: -68.5, z: -30.0, armAngle: Math.PI / 2 },  // West curb, arm points East (+X) over road
-            { x: -65.5, z: 15.0,  armAngle: -Math.PI / 2 }, // East curb, arm points West (-X) over road
+            // Road 3: Avenue 1 (Center X = -67.0) - North End and South End
+            { x: -68.5, z: -44.0, armAngle: Math.PI / 2 },  // North End (West curb, arm points East +X over road)
+            { x: -65.5, z: 16.0,  armAngle: -Math.PI / 2 }, // South End (East curb, arm points West -X over road)
 
-            // Road 4: Avenue 2 (Center X = -45.0)
-            { x: -46.5, z: -30.0, armAngle: Math.PI / 2 },  // West curb, arm points East (+X) over road
-            { x: -43.5, z: 15.0,  armAngle: -Math.PI / 2 }, // East curb, arm points West (-X) over road
+            // Road 4: Avenue 2 (Center X = -45.0) - North End and South End
+            { x: -46.5, z: -44.0, armAngle: Math.PI / 2 },  // North End (West curb, arm points East +X over road)
+            { x: -43.5, z: 16.0,  armAngle: -Math.PI / 2 }, // South End (East curb, arm points West -X over road)
 
-            // Road 5: Avenue 3 (Center X = -21.8)
-            { x: -23.2, z: -30.0, armAngle: Math.PI / 2 },  // West curb, arm points East (+X) over road
-            { x: -20.4, z: 15.0,  armAngle: -Math.PI / 2 }, // East curb, arm points West (-X) over road
+            // Road 5: Avenue 3 (Center X = -21.8) - North End and South End
+            { x: -23.2, z: -44.0, armAngle: Math.PI / 2 },  // North End (West curb, arm points East +X over road)
+            { x: -20.4, z: 62.0,  armAngle: -Math.PI / 2 }, // South End (East curb, arm points West -X over road)
 
-            // Road 6: Avenue 4 (Central Avenue, Center X = 0.35)
-            { x: -0.4, z: -30.0, armAngle: Math.PI / 2 },   // West curb, arm points East (+X) over road
-            { x: 1.3,  z: 15.0,  armAngle: -Math.PI / 2 },  // East curb, arm points West (-X) over road
+            // Road 6: Avenue 4 (Central Avenue, Center X = 0.35) - North End and South End
+            { x: -0.4, z: -44.0, armAngle: Math.PI / 2 },   // North End (West curb, arm points East +X over road)
+            { x: 1.6,  z: 62.0,  armAngle: -Math.PI / 2 },  // South End (East curb, arm points West -X over road)
 
-            // Road 7: Avenue 5 (Center X = 23.5)
-            { x: 22.2, z: -30.0, armAngle: Math.PI / 2 },   // West curb, arm points East (+X) over road
-            { x: 23.7, z: 15.0,  armAngle: -Math.PI / 2 },  // East curb, arm points West (-X) over road
+            // Road 7: Avenue 5 (Center X = 23.5) - North End and South End
+            { x: 22.2, z: -44.0, armAngle: Math.PI / 2 },   // North End (West curb, arm points East +X over road)
+            { x: 24.8, z: 62.0,  armAngle: -Math.PI / 2 },  // South End (East curb, arm points West -X over road)
 
-            // Road 8: Avenue 6 (Center X = 47.0)
-            { x: 45.6, z: -30.0, armAngle: Math.PI / 2 },   // West curb, arm points East (+X) over road
-            { x: 48.4, z: 15.0,  armAngle: -Math.PI / 2 },  // East curb, arm points West (-X) over road
+            // Road 8: Avenue 6 (Center X = 47.0) - North End and South End
+            { x: 45.6, z: -44.0, armAngle: Math.PI / 2 },   // North End (West curb, arm points East +X over road)
+            { x: 48.4, z: 62.0,  armAngle: -Math.PI / 2 },  // South End (East curb, arm points West -X over road)
 
-            // Road 9: Avenue 7 (Center X = 70.0)
-            { x: 68.6, z: -38.0, armAngle: Math.PI / 2 },   // West curb, arm points East (+X) over road
-            { x: 71.4, z: -22.0, armAngle: -Math.PI / 2 },  // East curb, arm points West (-X) over road
+            // Road 9: Avenue 7 (Center X = 70.0) - North End and South End
+            { x: 68.6, z: -44.0, armAngle: Math.PI / 2 },   // North End (West curb, arm points East +X over road)
+            { x: 71.4, z: -13.0, armAngle: -Math.PI / 2 },  // South End (East curb, arm points West -X over road)
 
-            // Road 10: Eastern 60' Road (Center X = 98.0)
-            { x: 96.7, z: -38.0, armAngle: Math.PI / 2 },   // West curb, arm points East (+X) over road
-            { x: 99.0, z: -30.0, armAngle: -Math.PI / 2 }   // East curb, arm points West (-X) over road
+            // Road 10: Eastern 60' Road (Center X = 98.0) - North End and South End
+            { x: 97.5, z: -44.0, armAngle: Math.PI / 2 },   // North End (West curb, arm points East +X over road)
+            { x: 97.4, z: -14.0, armAngle: -Math.PI / 2 }   // South End (East curb, arm points West -X over road)
         ];
 
         // Instantiate street lights
@@ -951,11 +951,11 @@
             streetLightsGroup.add(pole);
         });
 
-        // Strategic downward road illumination point lights pool (smooth, lightweight)
+        // Strategic downward road illumination point lights pool at road ends (smooth, lightweight)
         const downwardPositions = [
-            [-25.0, 4.2, -10.7], [42.0, 4.2, -10.7],
-            [5.0, 4.2, 66.5], [48.0, 4.2, 66.5],
-            [-45.0, 4.2, 0.0], [0.35, 4.2, 0.0], [23.5, 4.2, 0.0], [47.0, 4.2, 0.0]
+            [-75.0, 4.2, -10.7], [92.0, 4.2, -10.7],
+            [-26.0, 4.2, 66.5],  [78.0, 4.2, 66.5],
+            [-45.0, 4.2, -44.0], [0.35, 4.2, -44.0], [23.5, 4.2, -44.0], [47.0, 4.2, -44.0]
         ];
 
         const initialDlIntensity = (currentLightingMode === 'night') ? 1.6 : (currentLightingMode === 'sunset' ? 0.6 : 0.0);
