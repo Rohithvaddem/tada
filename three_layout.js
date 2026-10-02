@@ -22,6 +22,8 @@
     let animFrameId = null;
     let isModalOpen = false;
     let activeFilterStatus = 'ALL';
+    let isXRayMode = false;
+    let isBlueprintVisible = true;
 
     // Camera animation state
     let isCameraAnimating = false;
@@ -474,13 +476,16 @@
 
         const layoutGeo = new THREE.PlaneGeometry(LAYOUT_WIDTH, LAYOUT_HEIGHT, 16, 16);
         const texLoader = new THREE.TextureLoader();
+        if (window.location && window.location.protocol === 'file:') {
+            texLoader.setCrossOrigin('');
+        }
 
         // Default procedural texture first to guarantee visibility
         const fallbackTex = createProceduralGroundTexture();
         const layoutMat = new THREE.MeshStandardMaterial({
             map: fallbackTex,
-            roughness: 0.65,
-            metalness: 0.15,
+            roughness: 0.75,
+            metalness: 0.05,
             color: 0xffffff
         });
 
@@ -490,26 +495,56 @@
         groundMesh.receiveShadow = true;
         scene.add(groundMesh);
 
-        // Attempt loading real blueprint image texture
+        function applyLayoutTexture(tex) {
+            if (!tex) return;
+            const maxAniso = (renderer && renderer.capabilities && renderer.capabilities.getMaxAnisotropy) 
+                ? renderer.capabilities.getMaxAnisotropy() : 8;
+            tex.anisotropy = maxAniso;
+            tex.generateMipmaps = true;
+            tex.minFilter = THREE.LinearMipmapLinearFilter;
+            tex.magFilter = THREE.LinearFilter;
+            tex.needsUpdate = true;
+            layoutTexture = tex;
+            if (groundMesh) {
+                groundMesh.material.map = tex;
+                groundMesh.material.needsUpdate = true;
+            }
+        }
+
+        // Load optimized 2K white-backed blueprint layout texture with fallbacks
         texLoader.load(
-            'map_layout.webp?v=1.0.6',
+            'map_layout_3d_white.webp?v=1.9.0',
             (tex) => {
-                tex.anisotropy = 8;
-                if (groundMesh) {
-                    groundMesh.material.map = tex;
-                    groundMesh.material.needsUpdate = true;
-                }
+                applyLayoutTexture(tex);
+                console.log('✅ Loaded Tada 3D Blueprint layout: map_layout_3d_white.webp');
             },
             undefined,
             () => {
-                texLoader.load('map_layout.jpg', (texJpg) => {
-                    if (groundMesh) {
-                        groundMesh.material.map = texJpg;
-                        groundMesh.material.needsUpdate = true;
+                texLoader.load(
+                    'map_layout_3d_white.jpg?v=1.9.0',
+                    (texJpg) => {
+                        applyLayoutTexture(texJpg);
+                        console.log('✅ Loaded Tada 3D Blueprint layout: map_layout_3d_white.jpg');
+                    },
+                    undefined,
+                    () => {
+                        texLoader.load(
+                            'map_layout_3d.webp?v=1.9.0',
+                            applyLayoutTexture,
+                            undefined,
+                            () => {
+                                texLoader.load(
+                                    'map_layout_3d.jpg?v=1.9.0',
+                                    applyLayoutTexture,
+                                    undefined,
+                                    () => {
+                                        console.log('Using procedural layout grid fallback.');
+                                    }
+                                );
+                            }
+                        );
                     }
-                }, undefined, () => {
-                    console.log('Using procedural layout grid.');
-                });
+                );
             }
         );
 
@@ -605,7 +640,7 @@
             });
 
             const parcelMesh = new THREE.Mesh(parcelGeo, parcelMat);
-            parcelMesh.position.y = pHeight / 2;
+            parcelMesh.position.y = pHeight / 2 + 0.08;
             parcelMesh.castShadow = true;
             parcelMesh.receiveShadow = true;
 
@@ -615,7 +650,7 @@
                 status,
                 baseColorHex: colorHex,
                 baseColor: colorThree.clone(),
-                defaultY: pHeight / 2,
+                defaultY: pHeight / 2 + 0.08,
                 pWidth,
                 pDepth,
                 pHeight,
@@ -641,12 +676,12 @@
             ];
             corners.forEach(([cx, cz]) => {
                 const stone = new THREE.Mesh(cornerStoneGeo, cornerStoneMat);
-                stone.position.set(cx, pHeight + 0.15, cz);
+                stone.position.set(cx, pHeight + 0.2, cz);
                 plotGroup.add(stone);
             });
 
             const labelSprite = createPlotNumberSprite(plotNo, colorHex);
-            labelSprite.position.set(0, pHeight + 1.8, 0);
+            labelSprite.position.set(0, pHeight + 1.88, 0);
             plotGroup.add(labelSprite);
             plotLabels[plotNo] = labelSprite;
 
@@ -1078,6 +1113,35 @@
     }
 
     /**
+     * Toggle visibility of ground blueprint layout plane
+     */
+    function toggleBlueprintLayout() {
+        isBlueprintVisible = !isBlueprintVisible;
+        if (groundMesh) {
+            groundMesh.visible = isBlueprintVisible;
+        }
+        const btn = document.getElementById('threeToggleLayoutBtn');
+        if (btn) btn.classList.toggle('active', isBlueprintVisible);
+    }
+
+    /**
+     * Toggle X-Ray mode to see underlying blueprint details through 3D plots
+     */
+    function toggleXRayMode() {
+        isXRayMode = !isXRayMode;
+        const targetOpacity = isXRayMode ? 0.38 : 0.95;
+        Object.values(plotMeshes).forEach(mesh => {
+            if (mesh && mesh.material) {
+                mesh.material.opacity = targetOpacity;
+                mesh.material.transparent = true;
+                mesh.material.needsUpdate = true;
+            }
+        });
+        const btn = document.getElementById('threeXRayBtn');
+        if (btn) btn.classList.toggle('active', isXRayMode);
+    }
+
+    /**
      * Setup Modal Controls (Buttons, Presets, Filters, Lighting, Search)
      */
     function setupModalUI() {
@@ -1139,6 +1203,18 @@
                 applyLightingMode(btn.dataset.mode);
             });
         });
+
+        // Blueprint Layout Toggle Button
+        const toggleLayoutBtn = document.getElementById('threeToggleLayoutBtn');
+        if (toggleLayoutBtn) {
+            toggleLayoutBtn.addEventListener('click', toggleBlueprintLayout);
+        }
+
+        // X-Ray Mode Toggle Button
+        const xRayBtn = document.getElementById('threeXRayBtn');
+        if (xRayBtn) {
+            xRayBtn.addEventListener('click', toggleXRayMode);
+        }
 
         // Auto-Rotate Toggle
         const autoRotateBtn = document.getElementById('threeAutoRotateBtn');
@@ -1219,5 +1295,7 @@
     window.open3DLayoutModal = open3DLayoutModal;
     window.close3DLayoutModal = close3DLayoutModal;
     window.focus3DPlot = selectPlot;
+    window.toggle3DBlueprint = toggleBlueprintLayout;
+    window.toggle3DXRay = toggleXRayMode;
 
 })();
