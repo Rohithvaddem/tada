@@ -9,7 +9,7 @@
 
     // Module State
     let scene, camera, renderer, controls;
-    let groundMesh, layoutTexture, layoutWorldGroup, satelliteMesh;
+    let groundMesh, layoutTexture, layoutWorldGroup, satelliteMesh, wideSatelliteMesh;
     const plotMeshes = {};       // plotNo -> THREE.Mesh
     const plotLabels = {};       // plotNo -> THREE.Sprite
     const plotGroups = {};       // plotNo -> THREE.Group
@@ -269,8 +269,8 @@
             controls.enableDamping = true;
             controls.dampingFactor = 0.06;
             controls.maxPolarAngle = Math.PI / 2 - 0.02;
-            controls.minDistance = 10;
-            controls.maxDistance = 1400;
+            controls.minDistance = 15;
+            controls.maxDistance = 600;
             controls.target.copy(overviewPreset.target);
         }
 
@@ -402,21 +402,61 @@
         }
 
         // 1. Vast Outer Landscape Terrain (Far horizon surrounding Tada)
-        const outerGeo = new THREE.PlaneGeometry(2400, 2400);
+        const outerGeo = new THREE.PlaneGeometry(4500, 4500);
         const outerMat = new THREE.MeshBasicMaterial({
-            color: 0x162a1c, // Natural satellite terrain green-earth tone
+            color: 0x142417, // Natural satellite terrain green-earth tone
             side: THREE.DoubleSide
         });
         const outerMesh = new THREE.Mesh(outerGeo, outerMat);
         outerMesh.rotation.x = -Math.PI / 2;
-        outerMesh.position.set(10.03, -0.25, 2.68);
+        outerMesh.position.set(159.02, -0.26, 215.86);
         scene.add(outerMesh);
 
-        // 2. Real Esri Satellite World Imagery Terrain Plane (Centered on calibrated Tada coordinates)
+        // 2. Wide Regional Esri Satellite Terrain Plane (Covers entire 4.7 km landscape)
+        const wideSatGeo = new THREE.PlaneGeometry(2384, 2274, 16, 16);
+        const wideSatMat = new THREE.MeshBasicMaterial({
+            color: 0xffffff,
+            side: THREE.DoubleSide
+        });
+        wideSatelliteMesh = new THREE.Mesh(wideSatGeo, wideSatMat);
+        wideSatelliteMesh.rotation.x = -Math.PI / 2;
+        wideSatelliteMesh.position.set(159.02, -0.20, 215.86);
+        scene.add(wideSatelliteMesh);
+
+        function applyWideSatTexture(tex) {
+            if (!tex || !wideSatelliteMesh) return;
+            const maxAniso = (renderer && renderer.capabilities && renderer.capabilities.getMaxAnisotropy)
+                ? renderer.capabilities.getMaxAnisotropy() : 8;
+            tex.anisotropy = maxAniso;
+            tex.generateMipmaps = true;
+            tex.minFilter = THREE.LinearMipmapLinearFilter;
+            tex.magFilter = THREE.LinearFilter;
+            if (THREE.sRGBEncoding) {
+                tex.encoding = THREE.sRGBEncoding;
+            }
+            tex.needsUpdate = true;
+            wideSatelliteMesh.material.map = tex;
+            wideSatelliteMesh.material.needsUpdate = true;
+        }
+
+        // Priority 1: Wide satellite from embedded Base64 (instant offline/local load)
+        if (typeof TADA_SATELLITE_WIDE_B64 !== 'undefined' && TADA_SATELLITE_WIDE_B64) {
+            texLoader.load(TADA_SATELLITE_WIDE_B64, (tex) => {
+                applyWideSatTexture(tex);
+                console.log('✅ Loaded Wide Regional Esri Satellite terrain via embedded Base64.');
+            });
+        }
+        // Priority 2: Wide satellite external image fallback
+        texLoader.load('tada_satellite_wide.webp?v=1.9.2', applyWideSatTexture);
+
+        // 3. Ultra High-Res Local Tada Esri Satellite Plane (Feathered edge seamlessly blends into wide terrain)
         const satGeo = new THREE.PlaneGeometry(447, 426.4, 16, 16);
         const satMat = new THREE.MeshBasicMaterial({
             color: 0xffffff,
-            side: THREE.DoubleSide
+            side: THREE.DoubleSide,
+            transparent: true,
+            opacity: 1.0,
+            depthWrite: false
         });
         satelliteMesh = new THREE.Mesh(satGeo, satMat);
         satelliteMesh.rotation.x = -Math.PI / 2;
@@ -436,6 +476,9 @@
             }
             tex.needsUpdate = true;
             satelliteMesh.material.map = tex;
+            satelliteMesh.material.transparent = true;
+            satelliteMesh.material.opacity = 1.0;
+            satelliteMesh.material.depthWrite = false;
             satelliteMesh.material.needsUpdate = true;
         }
 
@@ -443,20 +486,20 @@
         if (typeof TADA_SATELLITE_TEXTURE_B64 !== 'undefined' && TADA_SATELLITE_TEXTURE_B64) {
             texLoader.load(TADA_SATELLITE_TEXTURE_B64, (tex) => {
                 applySatTexture(tex);
-                console.log('✅ Loaded Esri World Imagery satellite terrain via embedded Base64 URI.');
+                console.log('✅ Loaded High-Res Tada Esri Satellite terrain via embedded Base64 URI.');
             });
         }
 
         // Priority 2: External Esri Satellite image files
         texLoader.load(
-            'tada_satellite_ground.webp?v=1.9.1',
+            'tada_satellite_ground.webp?v=1.9.2',
             (tex) => {
                 applySatTexture(tex);
                 console.log('✅ Loaded Esri satellite terrain: tada_satellite_ground.webp');
             },
             undefined,
             () => {
-                texLoader.load('tada_satellite_ground.jpg?v=1.9.1', applySatTexture);
+                texLoader.load('tada_satellite_ground.jpg?v=1.9.2', applySatTexture);
             }
         );
 
