@@ -24,6 +24,17 @@
     let isXRayMode = false;
     let isBlueprintVisible = true;
 
+    // Street Lights and Vehicles State
+    let streetLightsGroup = null;
+    const streetLightMats = {};
+    const streetLightGeos = {};
+    const streetLightDownwardLights = [];
+    let vehiclesGroup = null;
+    const vehiclesList = [];
+    let vehicleHeadlightMaterial = null;
+    let vehicleTaillightMaterial = null;
+    let lastFrameTime = performance.now();
+
     // Camera animation state
     let isCameraAnimating = false;
     let cameraStartPos = null;
@@ -296,10 +307,16 @@
         // 8. 3D Plots
         build3DPlots();
 
-        // 8. Highlight Beacon (Spotlight & Ring)
+        // 9. Street Lights along all layout roads
+        setupStreetLights();
+
+        // 10. Moving Vehicles on layout roads
+        setupVehicles();
+
+        // 11. Highlight Beacon (Spotlight & Ring)
         setupBeacon();
 
-        // 9. Event Listeners for Raycasting & Resize
+        // 12. Event Listeners for Raycasting & Resize
         setupEventListeners(container);
 
         return true;
@@ -389,6 +406,31 @@
             lights.sun.position.set(-60, 100, -70);
             lights.nightLightsGroup.children.forEach(l => l.intensity = 1.8);
             updatePlotEmissives(0.55);
+        }
+
+        // Update terrain and ground colors for realistic sunset and night ambiance
+        const groundTint = (mode === 'night') ? 0x1e293b : (mode === 'sunset' ? 0xfed7aa : 0xffffff);
+        if (wideSatelliteMesh && wideSatelliteMesh.material) wideSatelliteMesh.material.color.set(groundTint);
+        if (satelliteMesh && satelliteMesh.material) satelliteMesh.material.color.set(groundTint);
+        if (groundMesh && groundMesh.material) {
+            groundMesh.material.color.set(mode === 'night' ? 0x64748b : (mode === 'sunset' ? 0xfed7aa : 0xffffff));
+        }
+
+        // Update street lights emissives & downward road illumination
+        if (streetLightMats.lens) {
+            streetLightMats.lens.emissiveIntensity = (mode === 'night') ? 3.0 : (mode === 'sunset' ? 2.0 : 0.85);
+        }
+        if (streetLightDownwardLights && streetLightDownwardLights.length > 0) {
+            const dlIntensity = (mode === 'night') ? 1.6 : (mode === 'sunset' ? 0.6 : 0.0);
+            streetLightDownwardLights.forEach(pl => pl.intensity = dlIntensity);
+        }
+
+        // Update vehicle lights emissives
+        if (vehicleHeadlightMaterial) {
+            vehicleHeadlightMaterial.emissiveIntensity = (mode === 'night') ? 3.5 : (mode === 'sunset' ? 2.4 : 1.2);
+        }
+        if (vehicleTaillightMaterial) {
+            vehicleTaillightMaterial.emissiveIntensity = (mode === 'night') ? 3.0 : (mode === 'sunset' ? 2.2 : 1.2);
         }
     }
 
@@ -784,6 +826,470 @@
     }
 
     /**
+     * Setup Architectural LED Street Lights along all layout roads
+     */
+    function setupStreetLights() {
+        if (streetLightsGroup) {
+            layoutWorldGroup.remove(streetLightsGroup);
+            streetLightsGroup = null;
+        }
+
+        streetLightsGroup = new THREE.Group();
+        streetLightDownwardLights.length = 0;
+
+        // Shared geometries for performance
+        streetLightGeos.base = new THREE.CylinderGeometry(0.24, 0.32, 0.28, 8);
+        streetLightGeos.pole = new THREE.CylinderGeometry(0.09, 0.13, 4.2, 8);
+        streetLightGeos.arm = new THREE.CylinderGeometry(0.065, 0.065, 1.4, 8);
+        streetLightGeos.head = new THREE.BoxGeometry(0.42, 0.14, 0.85);
+        streetLightGeos.lens = new THREE.PlaneGeometry(0.34, 0.72);
+
+        // Shared materials
+        streetLightMats.base = new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.9 });
+        streetLightMats.pole = new THREE.MeshStandardMaterial({ color: 0x1e293b, metalness: 0.8, roughness: 0.25 });
+        streetLightMats.head = new THREE.MeshStandardMaterial({ color: 0x0f172a, metalness: 0.9, roughness: 0.15 });
+        streetLightMats.lens = new THREE.MeshStandardMaterial({
+            color: 0xffffff,
+            emissive: 0xfef08a,
+            emissiveIntensity: (currentLightingMode === 'night') ? 3.0 : (currentLightingMode === 'sunset' ? 2.0 : 0.85),
+            roughness: 0.1
+        });
+
+        function createSingleStreetLight(armAngle) {
+            const lightObj = new THREE.Group();
+
+            // Concrete foundation plinth
+            const baseMesh = new THREE.Mesh(streetLightGeos.base, streetLightMats.base);
+            baseMesh.position.y = 0.14;
+            lightObj.add(baseMesh);
+
+            // Steel vertical pole
+            const poleMesh = new THREE.Mesh(streetLightGeos.pole, streetLightMats.pole);
+            poleMesh.position.y = 2.18;
+            lightObj.add(poleMesh);
+
+            // Curved cantilever arm extending out over road
+            const armPivot = new THREE.Group();
+            armPivot.position.set(0, 4.15, 0);
+            armPivot.rotation.y = armAngle || 0;
+
+            const armMesh = new THREE.Mesh(streetLightGeos.arm, streetLightMats.pole);
+            armMesh.position.set(0, 0.22, 0.7);
+            armMesh.rotation.x = Math.PI / 14;
+            armPivot.add(armMesh);
+
+            // Modern luminaire head
+            const headMesh = new THREE.Mesh(streetLightGeos.head, streetLightMats.head);
+            headMesh.position.set(0, 0.36, 1.35);
+            armPivot.add(headMesh);
+
+            // LED downward light face
+            const lensMesh = new THREE.Mesh(streetLightGeos.lens, streetLightMats.lens);
+            lensMesh.rotation.x = Math.PI / 2;
+            lensMesh.position.set(0, 0.28, 1.35);
+            armPivot.add(lensMesh);
+
+            lightObj.add(armPivot);
+            return lightObj;
+        }
+
+        const streetLightPositions = [];
+
+        // 1. Central 40' Main Road (surveyed at Z = -12.0)
+        // North curb at Z = -14.6 (arm extends +Z towards road center)
+        for (let x = -75; x <= 90; x += 20) {
+            streetLightPositions.push({ x: x, z: -14.6, armAngle: 0 });
+        }
+        // South curb at Z = -9.4 (arm extends -Z towards road center)
+        for (let x = -65; x <= 85; x += 20) {
+            streetLightPositions.push({ x: x, z: -9.4, armAngle: Math.PI });
+        }
+
+        // 2. Vertical Avenues
+        const avenueXs = [-44.5, -21.5, 5.5, 28.5, 51.0, 74.0];
+        avenueXs.forEach(ax => {
+            const curbX = ax - 2.2;
+            const armAngle = Math.PI / 2; // arm points east toward avenue center
+            const zPoints = [-48, -32, 6, 24, 40];
+            zPoints.forEach(z => {
+                streetLightPositions.push({ x: curbX, z: z, armAngle: armAngle });
+            });
+        });
+
+        // 3. Eastern 60' Road along angled eastern boundary
+        const easternPoints = [
+            { z: -52, x: 98.3 },
+            { z: -34, x: 94.8 },
+            { z: -16, x: 92.3 },
+            { z: 6,   x: 89.3 },
+            { z: 28,  x: 85.8 },
+            { z: 44,  x: 83.3 }
+        ];
+        easternPoints.forEach(pt => {
+            streetLightPositions.push({ x: pt.x, z: pt.z, armAngle: Math.PI / 2 });
+        });
+
+        // 4. Southern 40' Road (surveyed at Z = 64.0, X from -25 to 78)
+        // North curb at Z = 61.4 (arm extends +Z towards road center)
+        for (let x = -25; x <= 78; x += 18) {
+            streetLightPositions.push({ x: x, z: 61.4, armAngle: 0 });
+        }
+
+        // Instantiate street lights
+        streetLightPositions.forEach(pos => {
+            const pole = createSingleStreetLight(pos.armAngle);
+            pole.position.set(pos.x, 0.08, pos.z);
+            streetLightsGroup.add(pole);
+        });
+
+        // Strategic downward road illumination point lights pool (smooth, lightweight)
+        const downwardPositions = [
+            [-50.0, 4.2, -12.0], [0.0, 4.2, -12.0], [50.0, 4.2, -12.0],
+            [-44.5, 4.2, -35], [-44.5, 4.2, 25],
+            [5.5, 4.2, -35], [5.5, 4.2, 25],
+            [51.0, 4.2, -35], [51.0, 4.2, 25],
+            [95.0, 4.2, -30], [86.0, 4.2, 25],
+            [25.0, 4.2, 64.0]
+        ];
+
+        const initialDlIntensity = (currentLightingMode === 'night') ? 1.6 : (currentLightingMode === 'sunset' ? 0.6 : 0.0);
+        downwardPositions.forEach(p => {
+            const dl = new THREE.PointLight(0xfff7ed, initialDlIntensity, 32, 1.8);
+            dl.position.set(p[0], p[1], p[2]);
+            streetLightsGroup.add(dl);
+            streetLightDownwardLights.push(dl);
+        });
+
+        layoutWorldGroup.add(streetLightsGroup);
+        console.log(`✅ Placed ${streetLightPositions.length} street lights and road illumination strictly inside layout roads.`);
+    }
+
+    /**
+     * Setup Moving Vehicles (Cars, SUVs, EVs, Vans) on random layout roads
+     */
+    function setupVehicles() {
+        if (vehiclesGroup) {
+            layoutWorldGroup.remove(vehiclesGroup);
+            vehiclesGroup = null;
+        }
+
+        vehiclesGroup = new THREE.Group();
+        vehiclesList.length = 0;
+
+        // Shared vehicle lights materials
+        const initialHeadlightIntensity = (currentLightingMode === 'night') ? 3.5 : (currentLightingMode === 'sunset' ? 2.4 : 1.2);
+        const initialTaillightIntensity = (currentLightingMode === 'night') ? 3.0 : (currentLightingMode === 'sunset' ? 2.2 : 1.2);
+
+        vehicleHeadlightMaterial = new THREE.MeshStandardMaterial({
+            color: 0xffffff,
+            emissive: 0xfef08a,
+            emissiveIntensity: initialHeadlightIntensity,
+            roughness: 0.1
+        });
+
+        vehicleTaillightMaterial = new THREE.MeshStandardMaterial({
+            color: 0xff0000,
+            emissive: 0xff1e1e,
+            emissiveIntensity: initialTaillightIntensity,
+            roughness: 0.1
+        });
+
+        function createVehicleModel(config) {
+            const group = new THREE.Group();
+            const type = config.type || 'sedan';
+            const color = config.color || 0xdc2626;
+
+            const bodyW = (type === 'suv' || type === 'van') ? 2.3 : 2.1;
+            const bodyL = (type === 'van') ? 4.9 : 4.3;
+            const bodyH = (type === 'suv') ? 1.4 : (type === 'van' ? 1.55 : 1.15);
+
+            // 1. Lower chassis / body
+            const chassisGeo = new THREE.BoxGeometry(bodyW, bodyH * 0.48, bodyL);
+            const paintMat = new THREE.MeshStandardMaterial({
+                color: color,
+                metalness: 0.72,
+                roughness: 0.28
+            });
+            const chassis = new THREE.Mesh(chassisGeo, paintMat);
+            chassis.position.y = bodyH * 0.28 + 0.12;
+            chassis.castShadow = true;
+            group.add(chassis);
+
+            // 2. Cabin / Glass Greenhouse
+            const cabinW = bodyW * 0.84;
+            const cabinL = (type === 'van') ? bodyL * 0.72 : bodyL * 0.52;
+            const cabinH = bodyH * 0.55;
+            const cabinGeo = new THREE.BoxGeometry(cabinW, cabinH, cabinL);
+            const glassMat = new THREE.MeshStandardMaterial({
+                color: 0x0f172a,
+                metalness: 0.9,
+                roughness: 0.1,
+                transparent: true,
+                opacity: 0.92
+            });
+            const cabin = new THREE.Mesh(cabinGeo, glassMat);
+            const cabinZ = (type === 'van') ? -bodyL * 0.05 : -bodyL * 0.06;
+            cabin.position.set(0, bodyH * 0.65 + 0.12, cabinZ);
+            cabin.castShadow = true;
+            group.add(cabin);
+
+            // 3. Cabin Roof Top (car paint)
+            const roofGeo = new THREE.BoxGeometry(cabinW * 0.96, 0.08, cabinL * 0.92);
+            const roof = new THREE.Mesh(roofGeo, paintMat);
+            roof.position.set(0, bodyH * 0.65 + cabinH / 2 + 0.16, cabinZ);
+            group.add(roof);
+
+            // 4. Wheels
+            const wheelGeo = new THREE.CylinderGeometry(0.36, 0.36, 0.24, 12);
+            wheelGeo.rotateZ(Math.PI / 2);
+            const tireMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.85 });
+            const rimMat = new THREE.MeshStandardMaterial({ color: 0xe2e8f0, metalness: 0.85, roughness: 0.2 });
+
+            const wheels = [];
+            const xOffset = bodyW / 2 + 0.03;
+            const zFront = bodyL * 0.30;
+            const zRear = -bodyL * 0.30;
+            const wheelY = 0.36;
+
+            const wheelPositions = [
+                [-xOffset, wheelY, zFront],
+                [xOffset, wheelY, zFront],
+                [-xOffset, wheelY, zRear],
+                [xOffset, wheelY, zRear]
+            ];
+
+            wheelPositions.forEach(([wx, wy, wz]) => {
+                const wheelGroup = new THREE.Group();
+                wheelGroup.position.set(wx, wy, wz);
+                const tire = new THREE.Mesh(wheelGeo, tireMat);
+                const rim = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.22, 0.25, 8), rimMat);
+                rim.rotateZ(Math.PI / 2);
+                wheelGroup.add(tire);
+                wheelGroup.add(rim);
+                group.add(wheelGroup);
+                wheels.push(tire);
+            });
+
+            // 5. Front Headlights (facing +Z forward)
+            const headLightGeo = new THREE.BoxGeometry(0.42, 0.16, 0.1);
+            const headL = new THREE.Mesh(headLightGeo, vehicleHeadlightMaterial);
+            headL.position.set(-bodyW * 0.34, bodyH * 0.32 + 0.12, bodyL / 2 + 0.04);
+            const headR = new THREE.Mesh(headLightGeo, vehicleHeadlightMaterial);
+            headR.position.set(bodyW * 0.34, bodyH * 0.32 + 0.12, bodyL / 2 + 0.04);
+            group.add(headL);
+            group.add(headR);
+
+            // Subtle forward light projection beam (facing +Z)
+            const beamGeo = new THREE.ConeGeometry(1.2, 5.0, 10);
+            beamGeo.rotateX(-Math.PI / 2);
+            beamGeo.translate(0, 0, 2.5);
+            const beamMat = new THREE.MeshBasicMaterial({
+                color: 0xfef08a,
+                transparent: true,
+                opacity: 0.12,
+                depthWrite: false,
+                side: THREE.DoubleSide
+            });
+            const beamMesh = new THREE.Mesh(beamGeo, beamMat);
+            beamMesh.position.set(0, bodyH * 0.30, bodyL / 2 + 0.2);
+            group.add(beamMesh);
+
+            // 6. Rear Taillights (facing -Z rear)
+            const tailLightGeo = new THREE.BoxGeometry(0.42, 0.15, 0.08);
+            const tailL = new THREE.Mesh(tailLightGeo, vehicleTaillightMaterial);
+            tailL.position.set(-bodyW * 0.34, bodyH * 0.34 + 0.12, -bodyL / 2 - 0.04);
+            const tailR = new THREE.Mesh(tailLightGeo, vehicleTaillightMaterial);
+            tailR.position.set(bodyW * 0.34, bodyH * 0.34 + 0.12, -bodyL / 2 - 0.04);
+            group.add(tailL);
+            group.add(tailR);
+
+            group.userData = { wheels, beamMesh };
+            return group;
+        }
+
+        // Vehicle specifications and distinct routes strictly within road corridors
+        const vehicleConfigs = [
+            // 1. Pearl White Modern SUV on Central 40' Boulevard (Eastbound Right Lane)
+            {
+                name: 'Pearl White SUV',
+                type: 'suv',
+                color: 0xf8fafc,
+                speed: 13.5,
+                waypoints: [
+                    { x: -75, z: -10.6 },
+                    { x: 90,  z: -10.6 },
+                    { x: 90,  z: -13.2 },
+                    { x: -75, z: -13.2 }
+                ]
+            },
+            // 2. Sport Crimson Metallic Sedan on Central 40' Boulevard (Westbound Lane Offset)
+            {
+                name: 'Sport Crimson Sedan',
+                type: 'sedan',
+                color: 0xdc2626,
+                speed: 14.8,
+                waypoints: [
+                    { x: 40,  z: -13.2 },
+                    { x: -75, z: -13.2 },
+                    { x: -75, z: -10.6 },
+                    { x: 90,  z: -10.6 },
+                    { x: 90,  z: -13.2 }
+                ]
+            },
+            // 3. Royal Cobalt Blue Sedan on Eastern 60' Perimeter Highway
+            {
+                name: 'Royal Blue Sedan',
+                type: 'sedan',
+                color: 0x1d4ed8,
+                speed: 15.0,
+                waypoints: [
+                    { x: 100.5, z: -52 },
+                    { x: 84.5,  z: 42 },
+                    { x: 86.5,  z: 42 },
+                    { x: 102.5, z: -52 }
+                ]
+            },
+            // 4. Emerald Green Electric Car on Avenue 2 (X = -44.5)
+            {
+                name: 'Emerald EV',
+                type: 'sedan',
+                color: 0x059669,
+                speed: 11.5,
+                waypoints: [
+                    { x: -43.6, z: -50 },
+                    { x: -43.6, z: 42 },
+                    { x: -45.4, z: 42 },
+                    { x: -45.4, z: -50 }
+                ]
+            },
+            // 5. Obsidian Luxury Black SUV on Central Avenue 4 (X = +5.5)
+            {
+                name: 'Obsidian SUV',
+                type: 'suv',
+                color: 0x111827,
+                speed: 12.0,
+                waypoints: [
+                    { x: 6.4, z: 45 },
+                    { x: 6.4, z: -50 },
+                    { x: 4.6, z: -50 },
+                    { x: 4.6, z: 45 }
+                ]
+            },
+            // 6. Sunset Amber Gold Crossover on Avenue 6 (X = +51.0)
+            {
+                name: 'Amber Crossover',
+                type: 'sedan',
+                color: 0xd97706,
+                speed: 12.5,
+                waypoints: [
+                    { x: 51.9, z: -50 },
+                    { x: 51.9, z: 45 },
+                    { x: 50.1, z: 45 },
+                    { x: 50.1, z: -50 }
+                ]
+            },
+            // 7. City Delivery Van on Southern 40' Road (Z = 64.0)
+            {
+                name: 'City Delivery Van',
+                type: 'van',
+                color: 0xe2e8f0,
+                speed: 11.0,
+                waypoints: [
+                    { x: -25, z: 65.0 },
+                    { x: 78,  z: 65.0 },
+                    { x: 78,  z: 63.0 },
+                    { x: -25, z: 63.0 }
+                ]
+            },
+            // 8. Cyber Violet Sedan navigating Inter-Avenue Cross Turns
+            {
+                name: 'Cyber Violet EV',
+                type: 'sedan',
+                color: 0x9333ea,
+                speed: 13.0,
+                waypoints: [
+                    { x: -21.5, z: -10.6 },
+                    { x: 28.5,  z: -10.6 },
+                    { x: 27.6,  z: -10.6 },
+                    { x: 27.6,  z: -50 },
+                    { x: 29.4,  z: -50 },
+                    { x: 29.4,  z: -13.2 },
+                    { x: -21.5, z: -13.2 },
+                    { x: -20.6, z: -13.2 },
+                    { x: -20.6, z: 42 },
+                    { x: -22.4, z: 42 },
+                    { x: -22.4, z: -10.6 }
+                ]
+            }
+        ];
+
+        vehicleConfigs.forEach(cfg => {
+            const mesh = createVehicleModel(cfg);
+            const startWp = cfg.waypoints[0];
+            mesh.position.set(startWp.x, 0.08, startWp.z);
+            vehiclesGroup.add(mesh);
+
+            vehiclesList.push({
+                mesh: mesh,
+                waypoints: cfg.waypoints,
+                targetIndex: 1 % cfg.waypoints.length,
+                speed: cfg.speed,
+                currentYaw: 0
+            });
+        });
+
+        layoutWorldGroup.add(vehiclesGroup);
+        console.log(`✅ Deployed ${vehiclesList.length} animated vehicles actively moving across layout roads.`);
+    }
+
+    /**
+     * Helper to smoothly interpolate angles avoiding 360-degree wrapping jumps
+     */
+    function lerpAngle(start, end, amount) {
+        let diff = (end - start) % (Math.PI * 2);
+        if (diff < -Math.PI) diff += Math.PI * 2;
+        if (diff > Math.PI) diff -= Math.PI * 2;
+        return start + diff * amount;
+    }
+
+    /**
+     * Update Moving Vehicles Positions, Orientations, and Wheel Rotations in Animation Loop
+     */
+    function updateVehicles(deltaTime) {
+        if (!vehiclesList || vehiclesList.length === 0) return;
+
+        vehiclesList.forEach(v => {
+            const currentWp = v.waypoints[v.targetIndex];
+            const mesh = v.mesh;
+            const dx = currentWp.x - mesh.position.x;
+            const dz = currentWp.z - mesh.position.z;
+            const dist = Math.hypot(dx, dz);
+
+            if (dist < 1.4) {
+                // Reached waypoint: advance to next waypoint
+                v.targetIndex = (v.targetIndex + 1) % v.waypoints.length;
+            } else {
+                // Compute desired heading angle (+Z is forward direction)
+                const targetYaw = Math.atan2(dx, dz);
+                v.currentYaw = lerpAngle(v.currentYaw, targetYaw, Math.min(deltaTime * 6.5, 0.35));
+                mesh.rotation.y = v.currentYaw;
+
+                // Move forward along current heading
+                const step = v.speed * deltaTime;
+                mesh.position.x += Math.sin(v.currentYaw) * step;
+                mesh.position.z += Math.cos(v.currentYaw) * step;
+
+                // Rotate wheels proportionally to movement
+                if (mesh.userData && mesh.userData.wheels) {
+                    mesh.userData.wheels.forEach(tire => {
+                        tire.rotation.x += step * 2.5;
+                    });
+                }
+            }
+        });
+    }
+
+    /**
      * Setup Visual Beacon (Spotlight & Pulse Ring for Selected Plot)
      */
     function setupBeacon() {
@@ -1033,10 +1539,18 @@
      */
     function startAnimationLoop() {
         if (animFrameId) cancelAnimationFrame(animFrameId);
+        lastFrameTime = performance.now();
 
         function animate() {
             if (!isModalOpen) return;
             animFrameId = requestAnimationFrame(animate);
+
+            const now = performance.now();
+            const delta = Math.min((now - lastFrameTime) / 1000, 0.1);
+            lastFrameTime = now;
+
+            // Animate moving vehicles across layout roads
+            updateVehicles(delta);
 
             if (isCameraAnimating) {
                 cameraAnimProgress += CAMERA_ANIM_SPEED;
