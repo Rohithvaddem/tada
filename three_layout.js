@@ -893,47 +893,48 @@
             return lightObj;
         }
 
-        const streetLightPositions = [];
+        // Exactly 2 architectural street lights per road, strictly on black road tarmac (10 roads = 20 lights)
+        const streetLightPositions = [
+            // Road 1: Central 40' Main Road (Z = -10.7)
+            { x: -26.60, z: -10.66, armAngle: 0 },
+            { x: 41.48,  z: -10.78, armAngle: 0 },
 
-        // 1. Central 40' Main Road (surveyed at Z = -12.0)
-        // North curb at Z = -14.6 (arm extends +Z towards road center)
-        for (let x = -75; x <= 90; x += 20) {
-            streetLightPositions.push({ x: x, z: -14.6, armAngle: 0 });
-        }
-        // South curb at Z = -9.4 (arm extends -Z towards road center)
-        for (let x = -65; x <= 85; x += 20) {
-            streetLightPositions.push({ x: x, z: -9.4, armAngle: Math.PI });
-        }
+            // Road 2: Southern 40' Road (Z = 66.5)
+            { x: 6.56,  z: 66.45, armAngle: 0 },
+            { x: 48.40, z: 66.45, armAngle: 0 },
 
-        // 2. Vertical Avenues
-        const avenueXs = [-44.5, -21.5, 5.5, 28.5, 51.0, 74.0];
-        avenueXs.forEach(ax => {
-            const curbX = ax - 2.2;
-            const armAngle = Math.PI / 2; // arm points east toward avenue center
-            const zPoints = [-48, -32, 6, 24, 40];
-            zPoints.forEach(z => {
-                streetLightPositions.push({ x: curbX, z: z, armAngle: armAngle });
-            });
-        });
+            // Road 3: Avenue 1 (X = -67.0)
+            { x: -67.03, z: -22.62, armAngle: Math.PI / 2 },
+            { x: -67.03, z: 12.54,  armAngle: Math.PI / 2 },
 
-        // 3. Eastern 60' Road along angled eastern boundary
-        const easternPoints = [
-            { z: -52, x: 98.3 },
-            { z: -34, x: 94.8 },
-            { z: -16, x: 92.3 },
-            { z: 6,   x: 89.3 },
-            { z: 28,  x: 85.8 },
-            { z: 44,  x: 83.3 }
+            // Road 4: Avenue 2 (X = -45.0)
+            { x: -45.00, z: -22.62, armAngle: Math.PI / 2 },
+            { x: -45.00, z: 12.30,  armAngle: Math.PI / 2 },
+
+            // Road 5: Avenue 3 (X = -21.8)
+            { x: -21.91, z: -22.62, armAngle: Math.PI / 2 },
+            { x: -21.80, z: 12.54,  armAngle: Math.PI / 2 },
+
+            // Road 6: Avenue 4 (Central Avenue, X = 0.35)
+            { x: 0.35, z: -22.62, armAngle: Math.PI / 2 },
+            { x: 0.35, z: 12.54,  armAngle: Math.PI / 2 },
+
+            // Road 7: Avenue 5 (X = 23.5)
+            { x: 23.44, z: -22.62, armAngle: Math.PI / 2 },
+            { x: 23.44, z: 12.54,  armAngle: Math.PI / 2 },
+
+            // Road 8: Avenue 6 (X = 47.0)
+            { x: 46.88, z: -22.62, armAngle: Math.PI / 2 },
+            { x: 46.99, z: 12.54,  armAngle: Math.PI / 2 },
+
+            // Road 9: Avenue 7 (X = 70.0)
+            { x: 69.96, z: -36.68, armAngle: Math.PI / 2 },
+            { x: 69.96, z: -23.44, armAngle: Math.PI / 2 },
+
+            // Road 10: Eastern 60' Road
+            { x: 100.43, z: -36.68, armAngle: Math.PI / 2 },
+            { x: 99.61,  z: -23.44, armAngle: Math.PI / 2 }
         ];
-        easternPoints.forEach(pt => {
-            streetLightPositions.push({ x: pt.x, z: pt.z, armAngle: Math.PI / 2 });
-        });
-
-        // 4. Southern 40' Road (surveyed at Z = 64.0, X from -25 to 78)
-        // North curb at Z = 61.4 (arm extends +Z towards road center)
-        for (let x = -25; x <= 78; x += 18) {
-            streetLightPositions.push({ x: x, z: 61.4, armAngle: 0 });
-        }
 
         // Instantiate street lights
         streetLightPositions.forEach(pos => {
@@ -944,28 +945,25 @@
 
         // Strategic downward road illumination point lights pool (smooth, lightweight)
         const downwardPositions = [
-            [-50.0, 4.2, -12.0], [0.0, 4.2, -12.0], [50.0, 4.2, -12.0],
-            [-44.5, 4.2, -35], [-44.5, 4.2, 25],
-            [5.5, 4.2, -35], [5.5, 4.2, 25],
-            [51.0, 4.2, -35], [51.0, 4.2, 25],
-            [95.0, 4.2, -30], [86.0, 4.2, 25],
-            [25.0, 4.2, 64.0]
+            [-26.6, 4.2, -10.7], [41.5, 4.2, -10.7],
+            [6.6, 4.2, 66.5], [48.4, 4.2, 66.5],
+            [-45.0, 4.2, 0.0], [0.35, 4.2, 0.0], [23.4, 4.2, 0.0], [46.9, 4.2, 0.0]
         ];
 
         const initialDlIntensity = (currentLightingMode === 'night') ? 1.6 : (currentLightingMode === 'sunset' ? 0.6 : 0.0);
         downwardPositions.forEach(p => {
-            const dl = new THREE.PointLight(0xfff7ed, initialDlIntensity, 32, 1.8);
+            const dl = new THREE.PointLight(0xfff7ed, initialDlIntensity, 28, 1.8);
             dl.position.set(p[0], p[1], p[2]);
             streetLightsGroup.add(dl);
             streetLightDownwardLights.push(dl);
         });
 
         layoutWorldGroup.add(streetLightsGroup);
-        console.log(`✅ Placed ${streetLightPositions.length} street lights and road illumination strictly inside layout roads.`);
+        console.log(`✅ Placed exactly 2 street lights per road (${streetLightPositions.length} lights total) strictly on black roads.`);
     }
 
     /**
-     * Setup Moving Vehicles (Cars, SUVs, EVs, Vans) on random layout roads
+     * Setup Moving Vehicles (Cars, SUVs, EVs, Vans) strictly on black layout roads
      */
     function setupVehicles() {
         if (vehiclesGroup) {
@@ -999,9 +997,9 @@
             const type = config.type || 'sedan';
             const color = config.color || 0xdc2626;
 
-            const bodyW = (type === 'suv' || type === 'van') ? 2.3 : 2.1;
-            const bodyL = (type === 'van') ? 4.9 : 4.3;
-            const bodyH = (type === 'suv') ? 1.4 : (type === 'van' ? 1.55 : 1.15);
+            const bodyW = (type === 'suv' || type === 'van') ? 1.85 : 1.7;
+            const bodyL = (type === 'van') ? 4.2 : 3.8;
+            const bodyH = (type === 'suv') ? 1.25 : (type === 'van' ? 1.4 : 1.05);
 
             // 1. Lower chassis / body
             const chassisGeo = new THREE.BoxGeometry(bodyW, bodyH * 0.48, bodyL);
@@ -1040,16 +1038,16 @@
             group.add(roof);
 
             // 4. Wheels
-            const wheelGeo = new THREE.CylinderGeometry(0.36, 0.36, 0.24, 12);
+            const wheelGeo = new THREE.CylinderGeometry(0.32, 0.32, 0.22, 12);
             wheelGeo.rotateZ(Math.PI / 2);
             const tireMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.85 });
             const rimMat = new THREE.MeshStandardMaterial({ color: 0xe2e8f0, metalness: 0.85, roughness: 0.2 });
 
             const wheels = [];
-            const xOffset = bodyW / 2 + 0.03;
+            const xOffset = bodyW / 2 + 0.02;
             const zFront = bodyL * 0.30;
             const zRear = -bodyL * 0.30;
-            const wheelY = 0.36;
+            const wheelY = 0.32;
 
             const wheelPositions = [
                 [-xOffset, wheelY, zFront],
@@ -1062,7 +1060,7 @@
                 const wheelGroup = new THREE.Group();
                 wheelGroup.position.set(wx, wy, wz);
                 const tire = new THREE.Mesh(wheelGeo, tireMat);
-                const rim = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.22, 0.25, 8), rimMat);
+                const rim = new THREE.Mesh(new THREE.CylinderGeometry(0.20, 0.20, 0.23, 8), rimMat);
                 rim.rotateZ(Math.PI / 2);
                 wheelGroup.add(tire);
                 wheelGroup.add(rim);
@@ -1071,7 +1069,7 @@
             });
 
             // 5. Front Headlights (facing +Z forward)
-            const headLightGeo = new THREE.BoxGeometry(0.42, 0.16, 0.1);
+            const headLightGeo = new THREE.BoxGeometry(0.38, 0.15, 0.1);
             const headL = new THREE.Mesh(headLightGeo, vehicleHeadlightMaterial);
             headL.position.set(-bodyW * 0.34, bodyH * 0.32 + 0.12, bodyL / 2 + 0.04);
             const headR = new THREE.Mesh(headLightGeo, vehicleHeadlightMaterial);
@@ -1080,9 +1078,9 @@
             group.add(headR);
 
             // Subtle forward light projection beam (facing +Z)
-            const beamGeo = new THREE.ConeGeometry(1.2, 5.0, 10);
+            const beamGeo = new THREE.ConeGeometry(1.0, 4.2, 10);
             beamGeo.rotateX(-Math.PI / 2);
-            beamGeo.translate(0, 0, 2.5);
+            beamGeo.translate(0, 0, 2.1);
             const beamMat = new THREE.MeshBasicMaterial({
                 color: 0xfef08a,
                 transparent: true,
@@ -1095,7 +1093,7 @@
             group.add(beamMesh);
 
             // 6. Rear Taillights (facing -Z rear)
-            const tailLightGeo = new THREE.BoxGeometry(0.42, 0.15, 0.08);
+            const tailLightGeo = new THREE.BoxGeometry(0.38, 0.14, 0.08);
             const tailL = new THREE.Mesh(tailLightGeo, vehicleTaillightMaterial);
             tailL.position.set(-bodyW * 0.34, bodyH * 0.34 + 0.12, -bodyL / 2 - 0.04);
             const tailR = new THREE.Mesh(tailLightGeo, vehicleTaillightMaterial);
@@ -1107,7 +1105,7 @@
             return group;
         }
 
-        // Vehicle specifications and distinct routes strictly within road corridors
+        // Vehicle specifications and distinct routes strictly on black road corridors
         const vehicleConfigs = [
             // 1. Pearl White Modern SUV on Central 40' Boulevard (Eastbound Right Lane)
             {
@@ -1116,10 +1114,10 @@
                 color: 0xf8fafc,
                 speed: 13.5,
                 waypoints: [
-                    { x: -75, z: -10.6 },
-                    { x: 90,  z: -10.6 },
-                    { x: 90,  z: -13.2 },
-                    { x: -75, z: -13.2 }
+                    { x: -70.08, z: -9.84 },
+                    { x: 87.89,  z: -9.84 },
+                    { x: 87.89,  z: -11.60 },
+                    { x: -70.08, z: -11.60 }
                 ]
             },
             // 2. Sport Crimson Metallic Sedan on Central 40' Boulevard (Westbound Lane Offset)
@@ -1129,96 +1127,68 @@
                 color: 0xdc2626,
                 speed: 14.8,
                 waypoints: [
-                    { x: 40,  z: -13.2 },
-                    { x: -75, z: -13.2 },
-                    { x: -75, z: -10.6 },
-                    { x: 90,  z: -10.6 },
-                    { x: 90,  z: -13.2 }
+                    { x: 34.92,  z: -11.60 },
+                    { x: -70.08, z: -11.60 },
+                    { x: -70.08, z: -9.84 },
+                    { x: 87.89,  z: -9.84 },
+                    { x: 87.89,  z: -11.60 }
                 ]
             },
-            // 3. Royal Cobalt Blue Sedan on Eastern 60' Perimeter Highway
-            {
-                name: 'Royal Blue Sedan',
-                type: 'sedan',
-                color: 0x1d4ed8,
-                speed: 15.0,
-                waypoints: [
-                    { x: 100.5, z: -52 },
-                    { x: 84.5,  z: 42 },
-                    { x: 86.5,  z: 42 },
-                    { x: 102.5, z: -52 }
-                ]
-            },
-            // 4. Emerald Green Electric Car on Avenue 2 (X = -44.5)
+            // 3. Emerald Green Electric Car on Avenue 2 (X = -45.0)
             {
                 name: 'Emerald EV',
                 type: 'sedan',
                 color: 0x059669,
                 speed: 11.5,
                 waypoints: [
-                    { x: -43.6, z: -50 },
-                    { x: -43.6, z: 42 },
-                    { x: -45.4, z: 42 },
-                    { x: -45.4, z: -50 }
+                    { x: -44.41, z: -41.84 },
+                    { x: -44.41, z: 30.00 },
+                    { x: -45.70, z: 30.00 },
+                    { x: -45.70, z: -42.07 }
                 ]
             },
-            // 5. Obsidian Luxury Black SUV on Central Avenue 4 (X = +5.5)
+            // 4. Obsidian Luxury Black SUV on Central Avenue 4 (X = 0.23)
             {
                 name: 'Obsidian SUV',
                 type: 'suv',
                 color: 0x111827,
                 speed: 12.0,
                 waypoints: [
-                    { x: 6.4, z: 45 },
-                    { x: 6.4, z: -50 },
-                    { x: 4.6, z: -50 },
-                    { x: 4.6, z: 45 }
+                    { x: 0.23, z: 30.00 },
+                    { x: 0.23, z: -42.07 }
                 ]
             },
-            // 6. Sunset Amber Gold Crossover on Avenue 6 (X = +51.0)
+            // 5. Sunset Amber Gold Crossover on Avenue 5 (X = 23.44)
             {
                 name: 'Amber Crossover',
                 type: 'sedan',
                 color: 0xd97706,
                 speed: 12.5,
                 waypoints: [
-                    { x: 51.9, z: -50 },
-                    { x: 51.9, z: 45 },
-                    { x: 50.1, z: 45 },
-                    { x: 50.1, z: -50 }
+                    { x: 23.44, z: -42.07 },
+                    { x: 23.44, z: 30.00 }
                 ]
             },
-            // 7. City Delivery Van on Southern 40' Road (Z = 64.0)
+            // 6. City Delivery Van on Southern 40' Road (Z = 66.45)
             {
                 name: 'City Delivery Van',
                 type: 'van',
                 color: 0xe2e8f0,
                 speed: 11.0,
                 waypoints: [
-                    { x: -25, z: 65.0 },
-                    { x: 78,  z: 65.0 },
-                    { x: 78,  z: 63.0 },
-                    { x: -25, z: 63.0 }
+                    { x: -20.04, z: 66.45 },
+                    { x: 69.96,  z: 66.45 }
                 ]
             },
-            // 8. Cyber Violet Sedan navigating Inter-Avenue Cross Turns
+            // 7. Royal Blue Sedan on Avenue 7 (X = 69.96)
             {
-                name: 'Cyber Violet EV',
+                name: 'Royal Blue Sedan',
                 type: 'sedan',
-                color: 0x9333ea,
-                speed: 13.0,
+                color: 0x1d4ed8,
+                speed: 12.5,
                 waypoints: [
-                    { x: -21.5, z: -10.6 },
-                    { x: 28.5,  z: -10.6 },
-                    { x: 27.6,  z: -10.6 },
-                    { x: 27.6,  z: -50 },
-                    { x: 29.4,  z: -50 },
-                    { x: 29.4,  z: -13.2 },
-                    { x: -21.5, z: -13.2 },
-                    { x: -20.6, z: -13.2 },
-                    { x: -20.6, z: 42 },
-                    { x: -22.4, z: 42 },
-                    { x: -22.4, z: -10.6 }
+                    { x: 69.96, z: -42.19 },
+                    { x: 69.96, z: -20.04 }
                 ]
             }
         ];
