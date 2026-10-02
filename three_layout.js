@@ -1335,9 +1335,9 @@
             return group;
         }
 
-        // Vehicle specifications and distinct routes strictly on black road corridors
+        // Vehicle specifications and distinct routes strictly on black road corridors (reduced to 3 vehicles)
         const vehicleConfigs = [
-            // 1. Pearl White Modern SUV on Central 40' Boulevard (Eastbound Right Lane)
+            // 1. Pearl White Modern SUV on Central 40' Boulevard (East-West Arterial)
             {
                 name: 'Pearl White SUV',
                 type: 'suv',
@@ -1350,75 +1350,30 @@
                     { x: -70.08, z: -11.60 }
                 ]
             },
-            // 2. Sport Crimson Metallic Sedan on Central 40' Boulevard (Westbound Lane Offset)
+            // 2. Sport Crimson Metallic Sedan on Central Avenue 4 (North-South Corridor)
             {
                 name: 'Sport Crimson Sedan',
                 type: 'sedan',
                 color: 0xdc2626,
-                speed: 14.8,
+                speed: 12.8,
                 waypoints: [
-                    { x: 34.92,  z: -11.60 },
-                    { x: -70.08, z: -11.60 },
-                    { x: -70.08, z: -9.84 },
-                    { x: 87.89,  z: -9.84 },
-                    { x: 87.89,  z: -11.60 }
+                    { x: 0.85,  z: 30.00 },
+                    { x: 0.85,  z: -42.07 },
+                    { x: -0.45, z: -42.07 },
+                    { x: -0.45, z: 30.00 }
                 ]
             },
-            // 3. Emerald Green Electric Car on Avenue 2 (X = -45.0)
-            {
-                name: 'Emerald EV',
-                type: 'sedan',
-                color: 0x059669,
-                speed: 11.5,
-                waypoints: [
-                    { x: -44.41, z: -41.84 },
-                    { x: -44.41, z: 30.00 },
-                    { x: -45.70, z: 30.00 },
-                    { x: -45.70, z: -42.07 }
-                ]
-            },
-            // 4. Obsidian Luxury Black SUV on Central Avenue 4 (X = 0.23)
-            {
-                name: 'Obsidian SUV',
-                type: 'suv',
-                color: 0x111827,
-                speed: 12.0,
-                waypoints: [
-                    { x: 0.23, z: 30.00 },
-                    { x: 0.23, z: -42.07 }
-                ]
-            },
-            // 5. Sunset Amber Gold Crossover on Avenue 5 (X = 23.44)
-            {
-                name: 'Amber Crossover',
-                type: 'sedan',
-                color: 0xd97706,
-                speed: 12.5,
-                waypoints: [
-                    { x: 23.44, z: -42.07 },
-                    { x: 23.44, z: 30.00 }
-                ]
-            },
-            // 6. City Delivery Van on Southern 40' Road (Z = 66.45)
+            // 3. City Delivery Van on Southern 40' Road (Southern Perimeter)
             {
                 name: 'City Delivery Van',
                 type: 'van',
                 color: 0xe2e8f0,
-                speed: 11.0,
+                speed: 11.5,
                 waypoints: [
-                    { x: -20.04, z: 66.45 },
-                    { x: 69.96,  z: 66.45 }
-                ]
-            },
-            // 7. Royal Blue Sedan on Avenue 7 (X = 69.96)
-            {
-                name: 'Royal Blue Sedan',
-                type: 'sedan',
-                color: 0x1d4ed8,
-                speed: 12.5,
-                waypoints: [
-                    { x: 69.96, z: -42.19 },
-                    { x: 69.96, z: -20.04 }
+                    { x: -20.04, z: 65.50 },
+                    { x: 69.96,  z: 65.50 },
+                    { x: 69.96,  z: 67.40 },
+                    { x: -20.04, z: 67.40 }
                 ]
             }
         ];
@@ -2236,5 +2191,7 @@
             controlsEnabled: controls ? controls.enabled : false
         };
     };
+    window.get3DVehiclesCount = () => (vehiclesList ? vehiclesList.length : 0);
+    window.get3DVehiclesPositions = () => (vehiclesList ? vehiclesList.map(v => ({ x: v.mesh.position.x, z: v.mesh.position.z })) : []);
 
 })();
