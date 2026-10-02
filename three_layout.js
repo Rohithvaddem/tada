@@ -35,20 +35,7 @@
     let vehicleTaillightMaterial = null;
     let lastFrameTime = performance.now();
 
-    // First-Person Walk Mode State (Free open walking simulator, FPS Pointer Lock & continuous free drag)
-    let isWalkModeActive = false;
-    let isPointerLocked = false;
-    let walkYaw = -Math.PI / 2; // Facing East down the Central Boulevard
-    let walkPitch = -0.02;
-    const walkKeys = {};
-    let walkBobTimer = 0;
-    let walkCurrentSpeed = 0;
-    const walkTouchDir = { x: 0, z: 0 };
-    let preWalkCamPos = null;
-    let preWalkTarget = null;
-    let preWalkFov = 45;
-    let isWalkDragging = false;
-    let walkDragPrev = { x: 0, y: 0 };
+
 
     // 3D House Customization State (plotNo -> 'villa' | 'duplex' | 'bungalow' | 'open')
     const customPlotStyles = {};
@@ -1061,310 +1048,6 @@
 
 
     /**
-     * Free Open First-Person Walk Simulator (FPS Pointer Lock, 360-deg drag look, direction-aligned WASD)
-     */
-    function enterWalkMode() {
-        if (isWalkModeActive || !camera || !controls) return;
-        isWalkModeActive = true;
-
-        // Remember orbit state to restore upon exit
-        preWalkCamPos = camera.position.clone();
-        preWalkTarget = controls.target.clone();
-        preWalkFov = camera.fov;
-
-        controls.enabled = false;
-
-        // Natural human wide-angle FOV (72 deg gives full immersive peripheral vision)
-        camera.fov = 72;
-        camera.updateProjectionMatrix();
-
-        // Spawn player on Central 40' Boulevard facing East down the scenic avenue
-        camera.position.set(-45.0, 1.85, -10.70);
-        walkYaw = -Math.PI / 2;
-        walkPitch = -0.02;
-        walkCurrentSpeed = 0;
-        camera.rotation.set(walkPitch, walkYaw, 0, 'YXZ');
-
-        // Update UI
-        const walkBtn = document.getElementById('threeWalkModeBtn');
-        if (walkBtn) walkBtn.classList.add('active');
-
-        document.querySelectorAll('.btn-cam-preset').forEach(b => b.classList.remove('active'));
-
-        const hud = document.getElementById('threeWalkHud');
-        if (hud) hud.classList.add('active');
-
-        const reticle = document.getElementById('threeWalkReticle');
-        if (reticle) reticle.classList.add('show');
-
-        const guide = document.getElementById('threeControlsGuide');
-        if (guide) guide.style.display = 'none';
-
-        // Check if mobile/touch
-        const isTouch = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
-        const dpad = document.getElementById('threeWalkTouchDpad');
-        if (dpad && isTouch) dpad.classList.add('show');
-
-        // Temporarily hide floating plot number billboard sprites for an immersive street view
-        Object.values(plotLabels).forEach(lbl => {
-            if (lbl) lbl.visible = false;
-        });
-
-        // Set cursor to crosshair for FPS exploration
-        const container = document.getElementById('threeCanvasContainer');
-        if (container) container.style.cursor = 'crosshair';
-
-        console.log('🚶 Free Walk Simulator: Activated. Drag mouse to look freely in 360 deg, or click to lock mouse. WASD = Move where you look.');
-    }
-
-    function exitWalkMode() {
-        if (!isWalkModeActive) return;
-        isWalkModeActive = false;
-
-        // Release pointer lock if active
-        if (document.pointerLockElement) {
-            try { document.exitPointerLock(); } catch(e) {}
-        }
-
-        // Restore orbit camera FOV
-        if (camera) {
-            camera.fov = preWalkFov || 45;
-            camera.updateProjectionMatrix();
-        }
-
-        // Restore floating plot numbers
-        Object.values(plotLabels).forEach(lbl => {
-            if (lbl) lbl.visible = true;
-        });
-
-        if (controls) {
-            controls.enabled = true;
-            if (preWalkCamPos && preWalkTarget) {
-                camera.position.copy(preWalkCamPos);
-                controls.target.copy(preWalkTarget);
-            } else {
-                const preset = getCameraPreset('overview');
-                camera.position.copy(preset.pos);
-                controls.target.copy(preset.target);
-            }
-            controls.update();
-        }
-
-        const walkBtn = document.getElementById('threeWalkModeBtn');
-        if (walkBtn) walkBtn.classList.remove('active');
-
-        const hud = document.getElementById('threeWalkHud');
-        if (hud) hud.classList.remove('active');
-
-        const reticle = document.getElementById('threeWalkReticle');
-        if (reticle) reticle.classList.remove('show');
-
-        const guide = document.getElementById('threeControlsGuide');
-        if (guide) guide.style.display = 'flex';
-
-        const dpad = document.getElementById('threeWalkTouchDpad');
-        if (dpad) dpad.classList.remove('show');
-
-        const overBtn = document.querySelector('.btn-cam-preset[data-preset="overview"]');
-        if (overBtn) overBtn.classList.add('active');
-
-        const container = document.getElementById('threeCanvasContainer');
-        if (container) container.style.cursor = 'grab';
-
-        console.log('🚶 Walk Mode: Exited to Orbit Controls.');
-    }
-
-    function updateWalkMode(delta) {
-        if (!isWalkModeActive || !camera) return;
-
-        const dt = Math.min(0.08, Math.max(0.001, delta));
-
-        // Smooth keyboard turning (Q / E or ArrowLeft / ArrowRight)
-        const turnSpeed = 2.4;
-        let didTurn = false;
-        if (walkKeys['KeyQ'] || walkKeys['ArrowLeft']) {
-            walkYaw += turnSpeed * dt;
-            didTurn = true;
-        }
-        if (walkKeys['KeyE'] || walkKeys['ArrowRight']) {
-            walkYaw -= turnSpeed * dt;
-            didTurn = true;
-        }
-        if (didTurn) {
-            camera.rotation.set(walkPitch, walkYaw, 0, 'YXZ');
-        }
-
-        // Determine input direction
-        let moveForward = 0;
-        let moveSide = 0;
-
-        if (walkKeys['KeyW'] || (walkKeys['ArrowUp'] && !walkKeys['KeyW'])) moveForward += 1;
-        if (walkKeys['KeyS'] || (walkKeys['ArrowDown'] && !walkKeys['KeyS'])) moveForward -= 1;
-        if (walkKeys['KeyA']) moveSide -= 1;
-        if (walkKeys['KeyD']) moveSide += 1;
-
-        // Add virtual touch D-pad
-        moveForward += walkTouchDir.z;
-        moveSide += walkTouchDir.x;
-
-        const isMoving = (moveForward !== 0 || moveSide !== 0);
-        const isSprinting = (walkKeys['ShiftLeft'] || walkKeys['ShiftRight']);
-        const targetSpeed = isMoving ? (isSprinting ? 18.0 : 10.0) : 0.0;
-
-        // Fluid acceleration / deceleration ramp
-        const accelRate = isMoving ? 16.0 : 20.0;
-        walkCurrentSpeed += (targetSpeed - walkCurrentSpeed) * Math.min(1.0, accelRate * dt);
-
-        if (walkCurrentSpeed > 0.05 && isMoving) {
-            const len = Math.sqrt(moveForward * moveForward + moveSide * moveSide) || 1;
-            const normF = moveForward / len;
-            const normS = moveSide / len;
-
-            // Free walking aligned 100% to current camera facing horizontal direction
-            const fX = -Math.sin(walkYaw);
-            const fZ = -Math.cos(walkYaw);
-            const rX = Math.cos(walkYaw);
-            const rZ = -Math.sin(walkYaw);
-
-            const moveX = (fX * normF + rX * normS) * walkCurrentSpeed;
-            const moveZ = (fZ * normF + rZ * normS) * walkCurrentSpeed;
-
-            camera.position.x += moveX * dt;
-            camera.position.z += moveZ * dt;
-
-            // Natural human walking bobbing
-            walkBobTimer += dt * (isSprinting ? 13.0 : 10.0);
-            const bobOffset = Math.sin(walkBobTimer) * (isSprinting ? 0.05 : 0.035);
-            camera.position.y = 1.85 + bobOffset;
-        } else {
-            camera.position.y += (1.85 - camera.position.y) * Math.min(1.0, 12.0 * dt);
-        }
-
-        // Open layout boundaries: Explore freely everywhere across the venture
-        camera.position.x = Math.max(-500, Math.min(500, camera.position.x));
-        camera.position.z = Math.max(-500, Math.min(500, camera.position.z));
-    }
-
-    function setupWalkInputListeners(container) {
-        window.addEventListener('keydown', (e) => {
-            if (e.target && ['INPUT', 'TEXTAREA'].includes(e.target.tagName)) return;
-            if (e.code === 'Escape' && isWalkModeActive) {
-                if (document.pointerLockElement) {
-                    try { document.exitPointerLock(); } catch(err) {}
-                    return; // First escape unlocks pointer, second exits walk
-                }
-                exitWalkMode();
-                return;
-            }
-            if (isWalkModeActive) {
-                walkKeys[e.code] = true;
-            }
-        });
-
-        window.addEventListener('keyup', (e) => {
-            if (isWalkModeActive) {
-                walkKeys[e.code] = false;
-            }
-        });
-
-        // Pointer Lock State Changes
-        document.addEventListener('pointerlockchange', () => {
-            isPointerLocked = (document.pointerLockElement === container || (renderer && document.pointerLockElement === renderer.domElement));
-            const hint = document.getElementById('threeWalkLockHint');
-            if (hint) {
-                hint.textContent = isPointerLocked ? 'Free Look Active (Esc to unlock)' : 'Click / Drag';
-            }
-            if (container) {
-                container.style.cursor = isPointerLocked ? 'none' : 'crosshair';
-            }
-        });
-
-        if (container) {
-            // Click to activate FPS Pointer Lock if not locked
-            container.addEventListener('click', (e) => {
-                if (isWalkModeActive) {
-                    if (!document.pointerLockElement && container.requestPointerLock) {
-                        try { container.requestPointerLock(); } catch(err) {}
-                    }
-                }
-            });
-
-            // Mouse Drag Look (works freely across window without needing pointer lock)
-            container.addEventListener('mousedown', (e) => {
-                if (isWalkModeActive && e.button === 0) {
-                    isWalkDragging = true;
-                    walkDragPrev.x = e.clientX;
-                    walkDragPrev.y = e.clientY;
-                }
-            });
-
-            window.addEventListener('mousemove', (e) => {
-                if (!isWalkModeActive) return;
-
-                // Mode A: FPS Pointer Lock Active (Real-time 1:1 camera look)
-                if (isPointerLocked || document.pointerLockElement === container || (renderer && document.pointerLockElement === renderer.domElement)) {
-                    const movementX = e.movementX || e.mozMovementX || 0;
-                    const movementY = e.movementY || e.mozMovementY || 0;
-                    const sens = 0.0022;
-
-                    walkYaw -= movementX * sens;
-                    walkPitch -= movementY * sens;
-                    walkPitch = Math.max(-Math.PI * 0.47, Math.min(Math.PI * 0.47, walkPitch));
-                    camera.rotation.set(walkPitch, walkYaw, 0, 'YXZ');
-                    return;
-                }
-
-                // Mode B: Free Continuous Drag Look
-                if (isWalkDragging) {
-                    const dx = e.clientX - walkDragPrev.x;
-                    const dy = e.clientY - walkDragPrev.y;
-                    walkDragPrev.x = e.clientX;
-                    walkDragPrev.y = e.clientY;
-
-                    const sens = 0.0036;
-                    walkYaw -= dx * sens;
-                    walkPitch -= dy * sens;
-                    walkPitch = Math.max(-Math.PI * 0.47, Math.min(Math.PI * 0.47, walkPitch));
-                    camera.rotation.set(walkPitch, walkYaw, 0, 'YXZ');
-                }
-            });
-
-            window.addEventListener('mouseup', () => {
-                isWalkDragging = false;
-            });
-
-            // Touch drag look on mobile / tablet
-            container.addEventListener('touchstart', (e) => {
-                if (isWalkModeActive && e.touches.length === 1) {
-                    isWalkDragging = true;
-                    walkDragPrev.x = e.touches[0].clientX;
-                    walkDragPrev.y = e.touches[0].clientY;
-                }
-            }, { passive: true });
-
-            container.addEventListener('touchmove', (e) => {
-                if (isWalkModeActive && isWalkDragging && e.touches.length === 1) {
-                    const dx = e.touches[0].clientX - walkDragPrev.x;
-                    const dy = e.touches[0].clientY - walkDragPrev.y;
-                    walkDragPrev.x = e.touches[0].clientX;
-                    walkDragPrev.y = e.touches[0].clientY;
-
-                    const sens = 0.0048;
-                    walkYaw -= dx * sens;
-                    walkPitch -= dy * sens;
-                    walkPitch = Math.max(-Math.PI * 0.47, Math.min(Math.PI * 0.47, walkPitch));
-                    camera.rotation.set(walkPitch, walkYaw, 0, 'YXZ');
-                }
-            }, { passive: true });
-
-            container.addEventListener('touchend', () => {
-                isWalkDragging = false;
-            });
-        }
-    }
-
-
-    /**
      * Setup Architectural LED Street Lights along all layout roads
      */
     function setupStreetLights() {
@@ -1846,14 +1529,6 @@
         }
 
         container.addEventListener('mousemove', (e) => {
-            if (isWalkModeActive) {
-                if (hoveredPlotMesh) {
-                    unhoverPlot(hoveredPlotMesh);
-                    hoveredPlotMesh = null;
-                }
-                hide3DTooltip();
-                return;
-            }
             const coords = getCanvasRelativeCoords(e);
             mouse.x = coords.x;
             mouse.y = coords.y;
@@ -1900,7 +1575,6 @@
         });
 
         container.addEventListener('click', (e) => {
-            if (isWalkModeActive) return; // Prevent clicking plots / snapping camera while walking
             const coords = getCanvasRelativeCoords(e);
             mouse.x = coords.x;
             mouse.y = coords.y;
@@ -1924,7 +1598,6 @@
         });
 
         window.addEventListener('resize', onWindowResize);
-        setupWalkInputListeners(container);
     }
 
     function onWindowResize() {
@@ -2078,11 +1751,6 @@
 
             // Animate moving vehicles across layout roads
             updateVehicles(delta);
-
-            // First-person walkthrough camera simulation
-            if (isWalkModeActive) {
-                updateWalkMode(delta);
-            }
 
             if (isCameraAnimating) {
                 cameraAnimProgress += CAMERA_ANIM_SPEED;
@@ -2434,7 +2102,6 @@
         // Camera Presets
         document.querySelectorAll('.btn-cam-preset').forEach(btn => {
             btn.addEventListener('click', () => {
-                if (isWalkModeActive) exitWalkMode();
                 document.querySelectorAll('.btn-cam-preset').forEach(b => b.classList.remove('active'));
                 btn.classList.add('active');
                 const presetKey = btn.dataset.preset;
@@ -2445,46 +2112,7 @@
             });
         });
 
-        // First-Person Walk Mode Button
-        const walkModeBtn = document.getElementById('threeWalkModeBtn');
-        if (walkModeBtn) {
-            walkModeBtn.addEventListener('click', () => {
-                if (isWalkModeActive) {
-                    exitWalkMode();
-                } else {
-                    enterWalkMode();
-                }
-            });
-        }
 
-        // Exit Walk Mode Button in HUD
-        const exitWalkBtn = document.getElementById('threeExitWalkBtn');
-        if (exitWalkBtn) {
-            exitWalkBtn.addEventListener('click', exitWalkMode);
-        }
-
-        // Touch D-Pad for Mobile Walk
-        const touchUp = document.getElementById('touchWalkUp');
-        const touchDown = document.getElementById('touchWalkDown');
-        const touchLeft = document.getElementById('touchWalkLeft');
-        const touchRight = document.getElementById('touchWalkRight');
-
-        function bindTouchDir(el, x, z) {
-            if (!el) return;
-            const setDir = (active) => {
-                walkTouchDir.x = active ? x : 0;
-                walkTouchDir.z = active ? z : 0;
-            };
-            el.addEventListener('mousedown', () => setDir(true));
-            el.addEventListener('mouseup', () => setDir(false));
-            el.addEventListener('mouseleave', () => setDir(false));
-            el.addEventListener('touchstart', (e) => { e.preventDefault(); setDir(true); }, { passive: false });
-            el.addEventListener('touchend', (e) => { e.preventDefault(); setDir(false); }, { passive: false });
-        }
-        bindTouchDir(touchUp, 0, 1);
-        bindTouchDir(touchDown, 0, -1);
-        bindTouchDir(touchLeft, -1, 0);
-        bindTouchDir(touchRight, 1, 0);
 
         // Lighting Mode Buttons
         document.querySelectorAll('.btn-light-mode').forEach(btn => {
@@ -2594,8 +2222,8 @@
     window.focus3DPlot = selectPlot;
     window.toggle3DBlueprint = toggleBlueprintLayout;
     window.toggle3DXRay = toggleXRayMode;
-    window.enter3DWalkMode = enterWalkMode;
-    window.exit3DWalkMode = exitWalkMode;
+    window.enter3DWalkMode = () => {};
+    window.exit3DWalkMode = () => {};
     window.customizePlotHouseStyle = rebuildPlotModel;
     window.applyHouseStyleToAllPlots = applyHouseStyleToAll;
     window.get3DCameraState = function() {
