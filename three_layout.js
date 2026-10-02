@@ -1,0 +1,1223 @@
+/**
+ * Tada Layout 3D Digital Interactive Model (Three.js)
+ * Implements real-time 3D visualization, interactive plot parcels, 
+ * lighting modes, camera presets, raycasting, status filters, and plot inspection.
+ */
+
+(function () {
+    'use strict';
+
+    // Module State
+    let scene, camera, renderer, controls;
+    let groundMesh, layoutTexture;
+    const plotMeshes = {};       // plotNo -> THREE.Mesh
+    const plotLabels = {};       // plotNo -> THREE.Sprite
+    const plotGroups = {};       // plotNo -> THREE.Group
+    let plotTreeGroup;
+    let lights = {};
+    let currentLightingMode = 'day';
+    let isAutoRotating = false;
+    let hoveredPlotMesh = null;
+    let selectedPlotNo = null;
+    let animFrameId = null;
+    let isModalOpen = false;
+    let activeFilterStatus = 'ALL';
+
+    // Camera animation state
+    let isCameraAnimating = false;
+    let cameraStartPos = null;
+    let cameraEndPos = null;
+    let targetStartPos = null;
+    let targetEndPos = null;
+    let cameraAnimProgress = 1;
+    const CAMERA_ANIM_SPEED = 0.045;
+
+    // Highlight beacon
+    let beaconRing = null;
+    let beaconLight = null;
+
+    // Constants
+    const LAYOUT_WIDTH = 240;
+    const LAYOUT_HEIGHT = 180;
+    const BASE_ELEVATION = 0.8;
+
+    // Camera Presets Data (Plain numeric arrays so no THREE is required at parse time)
+    const CAMERA_PRESETS_DATA = {
+        overview: { pos: [0, 130, 140], target: [0, 0, 0] },
+        isometric: { pos: [120, 110, 120], target: [0, 0, 0] },
+        lowAngle: { pos: [0, 22, 100], target: [0, 4, -20] },
+        topDown: { pos: [0, 190, 0.01], target: [0, 0, 0] }
+    };
+
+    function getCameraPreset(key) {
+        const item = CAMERA_PRESETS_DATA[key] || CAMERA_PRESETS_DATA.overview;
+        if (typeof THREE === 'undefined') return item;
+        return {
+            pos: new THREE.Vector3(item.pos[0], item.pos[1], item.pos[2]),
+            target: new THREE.Vector3(item.target[0], item.target[1], item.target[2])
+        };
+    }
+
+    /**
+     * Helper to get plot details from existing data sources
+     */
+    function getPlotDetails(plotNo) {
+        if (typeof plotData !== 'undefined' && Array.isArray(plotData)) {
+            const found = plotData.find(p => String(p.plot_no) === String(plotNo));
+            if (found) return found;
+        }
+        if (typeof plotDataRawTada !== 'undefined' && Array.isArray(plotDataRawTada)) {
+            const found = plotDataRawTada.find(p => String(p.plot_no) === String(plotNo));
+            if (found) return found;
+        }
+        return {
+            plot_no: plotNo,
+            plot_size: '200',
+            facing: 'East',
+            plot_status: 'AVAILABLE',
+            reference_name: 'ASPIREALTY'
+        };
+    }
+
+    function getPlotStatus(detail, plotNo) {
+        if (typeof getPlotEffectiveStatus === 'function') {
+            return getPlotEffectiveStatus(detail);
+        }
+        return (detail && detail.plot_status) ? detail.plot_status.toUpperCase().trim() : 'AVAILABLE';
+    }
+
+    function getPlotColor(status, plotNo, detail) {
+        if (typeof getStatusColor === 'function') {
+            return getStatusColor(status, plotNo, detail);
+        }
+        const s = String(status || '').toUpperCase();
+        if (s === 'SOLD' || s === 'BOOKED') return '#1d4ed8';
+        if (s === 'HOLD') return '#8b5cf6';
+        if (s === 'MORTGAGE') return '#f97316';
+        if (s === 'REGISTERED') return '#ff0000';
+        return '#059669';
+    }
+
+    /**
+     * Create Billboard Canvas Sprite for Plot Number Badge
+     */
+    function createPlotNumberSprite(plotNo, hexColor) {
+        const canvas = document.createElement('canvas');
+        canvas.width = 128;
+        canvas.height = 64;
+        const ctx = canvas.getContext('2d');
+
+        // Draw pill shape background
+        ctx.fillStyle = 'rgba(15, 23, 42, 0.88)';
+        ctx.beginPath();
+        const r = 18;
+        const x = 14, y = 10, w = 100, h = 44;
+        ctx.moveTo(x + r, y);
+        ctx.lineTo(x + w - r, y);
+        ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+        ctx.lineTo(x + w, y + h - r);
+        ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+        ctx.lineTo(x + r, y + h);
+        ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+        ctx.lineTo(x, y + r);
+        ctx.quadraticCurveTo(x, y, x + r, y);
+        ctx.closePath();
+        ctx.fill();
+
+        // Border colored with status
+        ctx.lineWidth = 4;
+        ctx.strokeStyle = hexColor || '#38bdf8';
+        ctx.stroke();
+
+        // Text
+        ctx.fillStyle = '#ffffff';
+        ctx.font = 'bold 26px "Plus Jakarta Sans", Outfit, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(String(plotNo), 64, 32);
+
+        const texture = new THREE.CanvasTexture(canvas);
+        texture.minFilter = THREE.LinearFilter;
+        const material = new THREE.SpriteMaterial({
+            map: texture,
+            transparent: true,
+            depthTest: false
+        });
+        const sprite = new THREE.Sprite(material);
+        sprite.scale.set(3.4, 1.7, 1);
+        sprite.userData = { plotNo };
+        return sprite;
+    }
+
+    /**
+     * Build procedural low-poly trees for greenery and avenue realism
+     */
+    function createTreeGroup() {
+        const group = new THREE.Group();
+        const trunkGeo = new THREE.CylinderGeometry(0.2, 0.35, 1.8, 6);
+        const trunkMat = new THREE.MeshStandardMaterial({ color: 0x4a2e18, roughness: 0.9 });
+
+        const foliageGeo1 = new THREE.ConeGeometry(1.6, 2.8, 7);
+        const foliageGeo2 = new THREE.ConeGeometry(1.2, 2.2, 7);
+        const foliageMat1 = new THREE.MeshStandardMaterial({ color: 0x15803d, roughness: 0.7, flatShading: true });
+        const foliageMat2 = new THREE.MeshStandardMaterial({ color: 0x22c55e, roughness: 0.6, flatShading: true });
+
+        // Place trees along perimeter borders and key avenues
+        const treeSpots = [
+            [-110, -82], [-85, -82], [-60, -82], [-35, -82], [-10, -82], [15, -82], [40, -82], [65, -82], [90, -82], [110, -82],
+            [-110, 82], [-85, 82], [-60, 82], [-35, 82], [-10, 82], [15, 82], [40, 82], [65, 82], [90, 82], [110, 82],
+            [-114, -60], [-114, -30], [-114, 0], [-114, 30], [-114, 60],
+            [114, -60], [114, -30], [114, 0], [114, 30], [114, 60],
+            [-45, -15], [-45, 15], [35, -15], [35, 15], [5, -45], [5, 45]
+        ];
+
+        treeSpots.forEach(([x, z]) => {
+            const tree = new THREE.Group();
+            
+            const trunk = new THREE.Mesh(trunkGeo, trunkMat);
+            trunk.position.y = 0.9;
+            trunk.castShadow = true;
+            trunk.receiveShadow = true;
+            tree.add(trunk);
+
+            const foliage1 = new THREE.Mesh(foliageGeo1, foliageMat1);
+            foliage1.position.y = 2.4;
+            foliage1.castShadow = true;
+            tree.add(foliage1);
+
+            const foliage2 = new THREE.Mesh(foliageGeo2, foliageMat2);
+            foliage2.position.y = 3.6;
+            foliage2.castShadow = true;
+            tree.add(foliage2);
+
+            const s = 0.85 + Math.random() * 0.4;
+            tree.scale.set(s, s, s);
+            tree.rotation.y = Math.random() * Math.PI * 2;
+            tree.position.set(x, 0, z);
+
+            group.add(tree);
+        });
+
+        return group;
+    }
+
+    /**
+     * Create Entrance Arch / Gate Structure
+     */
+    function createEntranceArch() {
+        const arch = new THREE.Group();
+        const pillarMat = new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.5 });
+        const goldMat = new THREE.MeshStandardMaterial({ color: 0xf59e0b, metalness: 0.7, roughness: 0.3 });
+
+        const pillarGeo = new THREE.BoxGeometry(1.6, 6, 1.6);
+        const pLeft = new THREE.Mesh(pillarGeo, pillarMat);
+        pLeft.position.set(-6, 3, 85);
+        pLeft.castShadow = true;
+        arch.add(pLeft);
+
+        const pRight = new THREE.Mesh(pillarGeo, pillarMat);
+        pRight.position.set(6, 3, 85);
+        pRight.castShadow = true;
+        arch.add(pRight);
+
+        const beamGeo = new THREE.BoxGeometry(14, 1.4, 1.8);
+        const beam = new THREE.Mesh(beamGeo, pillarMat);
+        beam.position.set(0, 6.2, 85);
+        beam.castShadow = true;
+        arch.add(beam);
+
+        const signGeo = new THREE.BoxGeometry(11, 0.8, 0.2);
+        const sign = new THREE.Mesh(signGeo, goldMat);
+        sign.position.set(0, 6.2, 85.95);
+        arch.add(sign);
+
+        return arch;
+    }
+
+    /**
+     * Create a procedural architectural fallback texture for ground
+     */
+    function createProceduralGroundTexture() {
+        const canvas = document.createElement('canvas');
+        canvas.width = 1024;
+        canvas.height = 768;
+        const ctx = canvas.getContext('2d');
+
+        // Background dark estate lawn
+        ctx.fillStyle = '#1e293b';
+        ctx.fillRect(0, 0, 1024, 768);
+
+        // Blueprint Grid lines
+        ctx.strokeStyle = 'rgba(56, 189, 248, 0.15)';
+        ctx.lineWidth = 1;
+        for (let x = 0; x <= 1024; x += 32) {
+            ctx.beginPath();
+            ctx.moveTo(x, 0);
+            ctx.lineTo(x, 768);
+            ctx.stroke();
+        }
+        for (let y = 0; y <= 768; y += 32) {
+            ctx.beginPath();
+            ctx.moveTo(0, y);
+            ctx.lineTo(1024, y);
+            ctx.stroke();
+        }
+
+        // Main Roads network simulation
+        ctx.fillStyle = '#0f172a';
+        ctx.fillRect(80, 330, 864, 40); // Main East-West road
+        ctx.fillRect(480, 60, 50, 640);  // Main North-South road
+
+        // Road markings
+        ctx.strokeStyle = '#facc15';
+        ctx.lineWidth = 2;
+        ctx.setLineDash([12, 12]);
+        ctx.beginPath();
+        ctx.moveTo(80, 350);
+        ctx.lineTo(944, 350);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(505, 60);
+        ctx.lineTo(505, 700);
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        const texture = new THREE.CanvasTexture(canvas);
+        return texture;
+    }
+
+    /**
+     * Initialize Three.js Scene, Camera, Renderer, Lights, and Ground
+     */
+    function initThreeScene() {
+        if (typeof THREE === 'undefined') {
+            console.error('Three.js library is not loaded.');
+            return false;
+        }
+
+        const container = document.getElementById('threeCanvasContainer');
+        if (!container) return false;
+
+        // Container dimensions with fallback
+        let w = container.clientWidth;
+        let h = container.clientHeight;
+        if (!w || !h || w === 0 || h === 0) {
+            const viewport = document.getElementById('modal3DViewport') || container.parentElement;
+            w = (viewport && viewport.clientWidth > 0) ? viewport.clientWidth : Math.floor(window.innerWidth * 0.92);
+            h = (viewport && viewport.clientHeight > 0) ? viewport.clientHeight : Math.floor(window.innerHeight * 0.85);
+        }
+        const aspect = (w && h) ? w / h : (window.innerWidth / window.innerHeight);
+
+        // Clean container
+        container.innerHTML = '';
+
+        // 1. Scene
+        scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x0a0f1d);
+        scene.fog = new THREE.FogExp2(0x0a0f1d, 0.002);
+
+        // 2. Camera
+        const overviewPreset = getCameraPreset('overview');
+        camera = new THREE.PerspectiveCamera(45, aspect, 0.5, 1500);
+        camera.position.copy(overviewPreset.pos);
+
+        // 3. Renderer
+        renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false, powerPreference: 'high-performance' });
+        renderer.setSize(w, h);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        if (THREE.sRGBEncoding) {
+            renderer.outputEncoding = THREE.sRGBEncoding;
+        }
+        container.appendChild(renderer.domElement);
+
+        // 4. OrbitControls
+        if (THREE.OrbitControls) {
+            controls = new THREE.OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+            controls.dampingFactor = 0.06;
+            controls.maxPolarAngle = Math.PI / 2 - 0.05;
+            controls.minDistance = 15;
+            controls.maxDistance = 350;
+            controls.target.copy(overviewPreset.target);
+        }
+
+        // 5. Lighting
+        setupLighting();
+
+        // 6. Ground Layout Plane & Terrain
+        setupGroundAndEnvironment();
+
+        // 7. 3D Plots
+        build3DPlots();
+
+        // 8. Highlight Beacon (Spotlight & Ring)
+        setupBeacon();
+
+        // 9. Event Listeners for Raycasting & Resize
+        setupEventListeners(container);
+
+        return true;
+    }
+
+    /**
+     * Setup Lights and Lighting Modes
+     */
+    function setupLighting() {
+        lights.ambient = new THREE.AmbientLight(0xffffff, 0.55);
+        scene.add(lights.ambient);
+
+        lights.hemi = new THREE.HemisphereLight(0xe0f2fe, 0x166534, 0.6);
+        scene.add(lights.hemi);
+
+        lights.sun = new THREE.DirectionalLight(0xfffbeb, 1.3);
+        lights.sun.position.set(80, 140, 100);
+        lights.sun.castShadow = true;
+        lights.sun.shadow.mapSize.width = 2048;
+        lights.sun.shadow.mapSize.height = 2048;
+        lights.sun.shadow.camera.near = 10;
+        lights.sun.shadow.camera.far = 350;
+        const d = 140;
+        lights.sun.shadow.camera.left = -d;
+        lights.sun.shadow.camera.right = d;
+        lights.sun.shadow.camera.top = d;
+        lights.sun.shadow.camera.bottom = -d;
+        lights.sun.shadow.bias = -0.0005;
+        scene.add(lights.sun);
+
+        lights.nightLightsGroup = new THREE.Group();
+        const streetLampColors = [0x38bdf8, 0x818cf8, 0xa855f7, 0x38bdf8];
+        const lampPositions = [
+            [-60, 4, -40], [60, 4, -40], [-60, 4, 40], [60, 4, 40], [0, 4, 0]
+        ];
+        lampPositions.forEach((pos, idx) => {
+            const pLight = new THREE.PointLight(streetLampColors[idx % streetLampColors.length], 0, 80);
+            pLight.position.set(pos[0], pos[1], pos[2]);
+            lights.nightLightsGroup.add(pLight);
+        });
+        scene.add(lights.nightLightsGroup);
+    }
+
+    /**
+     * Apply Lighting Presets (Day, Sunset, Cyber Night)
+     */
+    function applyLightingMode(mode) {
+        currentLightingMode = mode;
+        if (!scene || !lights.sun) return;
+
+        if (mode === 'day') {
+            scene.background.set(0x0a0f1d);
+            scene.fog.color.set(0x0a0f1d);
+            lights.ambient.color.set(0xffffff);
+            lights.ambient.intensity = 0.55;
+            lights.hemi.color.set(0xe0f2fe);
+            lights.hemi.groundColor.set(0x166534);
+            lights.hemi.intensity = 0.6;
+            lights.sun.color.set(0xfffbeb);
+            lights.sun.intensity = 1.3;
+            lights.sun.position.set(80, 140, 100);
+            lights.nightLightsGroup.children.forEach(l => l.intensity = 0);
+            updatePlotEmissives(0.05);
+        } else if (mode === 'sunset') {
+            scene.background.set(0x1a0d18);
+            scene.fog.color.set(0x1a0d18);
+            lights.ambient.color.set(0xfed7aa);
+            lights.ambient.intensity = 0.45;
+            lights.hemi.color.set(0xfb923c);
+            lights.hemi.groundColor.set(0x78350f);
+            lights.hemi.intensity = 0.5;
+            lights.sun.color.set(0xf97316);
+            lights.sun.intensity = 1.5;
+            lights.sun.position.set(130, 60, -90);
+            lights.nightLightsGroup.children.forEach(l => l.intensity = 0.3);
+            updatePlotEmissives(0.15);
+        } else if (mode === 'night') {
+            scene.background.set(0x030712);
+            scene.fog.color.set(0x030712);
+            lights.ambient.color.set(0x1e293b);
+            lights.ambient.intensity = 0.25;
+            lights.hemi.color.set(0x1e1b4b);
+            lights.hemi.groundColor.set(0x020617);
+            lights.hemi.intensity = 0.3;
+            lights.sun.color.set(0x38bdf8);
+            lights.sun.intensity = 0.4;
+            lights.sun.position.set(-60, 100, -70);
+            lights.nightLightsGroup.children.forEach(l => l.intensity = 1.8);
+            updatePlotEmissives(0.55);
+        }
+    }
+
+    function updatePlotEmissives(intensity) {
+        Object.values(plotMeshes).forEach(mesh => {
+            if (mesh && mesh.material) {
+                mesh.material.emissiveIntensity = intensity;
+            }
+        });
+    }
+
+    /**
+     * Setup Ground Blueprint Plane, Surrounding Terrain & Walls
+     */
+    function setupGroundAndEnvironment() {
+        const outerGeo = new THREE.PlaneGeometry(600, 500);
+        const outerMat = new THREE.MeshStandardMaterial({
+            color: 0x07111c,
+            roughness: 0.9,
+            metalness: 0.1
+        });
+        const outerMesh = new THREE.Mesh(outerGeo, outerMat);
+        outerMesh.rotation.x = -Math.PI / 2;
+        outerMesh.position.y = -0.15;
+        outerMesh.receiveShadow = true;
+        scene.add(outerMesh);
+
+        const layoutGeo = new THREE.PlaneGeometry(LAYOUT_WIDTH, LAYOUT_HEIGHT, 16, 16);
+        const texLoader = new THREE.TextureLoader();
+
+        // Default procedural texture first to guarantee visibility
+        const fallbackTex = createProceduralGroundTexture();
+        const layoutMat = new THREE.MeshStandardMaterial({
+            map: fallbackTex,
+            roughness: 0.65,
+            metalness: 0.15,
+            color: 0xffffff
+        });
+
+        groundMesh = new THREE.Mesh(layoutGeo, layoutMat);
+        groundMesh.rotation.x = -Math.PI / 2;
+        groundMesh.position.y = 0;
+        groundMesh.receiveShadow = true;
+        scene.add(groundMesh);
+
+        // Attempt loading real blueprint image texture
+        texLoader.load(
+            'map_layout.webp?v=1.0.6',
+            (tex) => {
+                tex.anisotropy = 8;
+                if (groundMesh) {
+                    groundMesh.material.map = tex;
+                    groundMesh.material.needsUpdate = true;
+                }
+            },
+            undefined,
+            () => {
+                texLoader.load('map_layout.jpg', (texJpg) => {
+                    if (groundMesh) {
+                        groundMesh.material.map = texJpg;
+                        groundMesh.material.needsUpdate = true;
+                    }
+                }, undefined, () => {
+                    console.log('Using procedural layout grid.');
+                });
+            }
+        );
+
+        // Boundary compound walls
+        const wallMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.8 });
+        const wallThickness = 1.2;
+        const wallHeight = 1.0;
+
+        const nWallGeo = new THREE.BoxGeometry(LAYOUT_WIDTH + 4, wallHeight, wallThickness);
+        const nWall = new THREE.Mesh(nWallGeo, wallMat);
+        nWall.position.set(0, wallHeight / 2, -(LAYOUT_HEIGHT / 2 + 1));
+        nWall.castShadow = true;
+        scene.add(nWall);
+
+        const sWallPartGeo = new THREE.BoxGeometry((LAYOUT_WIDTH - 24) / 2, wallHeight, wallThickness);
+        const sWallL = new THREE.Mesh(sWallPartGeo, wallMat);
+        sWallL.position.set(-((LAYOUT_WIDTH + 24) / 4), wallHeight / 2, (LAYOUT_HEIGHT / 2 + 1));
+        sWallL.castShadow = true;
+        scene.add(sWallL);
+
+        const sWallR = new THREE.Mesh(sWallPartGeo, wallMat);
+        sWallR.position.set(((LAYOUT_WIDTH + 24) / 4), wallHeight / 2, (LAYOUT_HEIGHT / 2 + 1));
+        sWallR.castShadow = true;
+        scene.add(sWallR);
+
+        const wWallGeo = new THREE.BoxGeometry(wallThickness, wallHeight, LAYOUT_HEIGHT);
+        const wWall = new THREE.Mesh(wWallGeo, wallMat);
+        wWall.position.set(-(LAYOUT_WIDTH / 2 + 1), wallHeight / 2, 0);
+        wWall.castShadow = true;
+        scene.add(wWall);
+
+        const eWallGeo = new THREE.BoxGeometry(wallThickness, wallHeight, LAYOUT_HEIGHT);
+        const eWall = new THREE.Mesh(eWallGeo, wallMat);
+        eWall.position.set((LAYOUT_WIDTH / 2 + 1), wallHeight / 2, 0);
+        eWall.castShadow = true;
+        scene.add(eWall);
+
+        // 3D Trees and Entrance Arch
+        plotTreeGroup = createTreeGroup();
+        scene.add(plotTreeGroup);
+
+        const entranceArch = createEntranceArch();
+        scene.add(entranceArch);
+    }
+
+    /**
+     * Build 3D Plots from 2D Coordinates
+     */
+    function build3DPlots() {
+        const coordsSource = (typeof plotCoordinates !== 'undefined') ? plotCoordinates : {};
+        const plotNumbers = Object.keys(coordsSource);
+
+        if (plotNumbers.length === 0) {
+            console.warn('3D Layout: No plotCoordinates found.');
+            return;
+        }
+
+        const cornerStoneGeo = new THREE.BoxGeometry(0.35, 0.6, 0.35);
+        const cornerStoneMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.3 });
+
+        plotNumbers.forEach(plotNo => {
+            const coord = coordsSource[plotNo];
+            if (!coord || typeof coord.left !== 'number' || typeof coord.top !== 'number') return;
+
+            const normX = coord.left / 1024 - 0.5;
+            const normZ = coord.top / 768 - 0.5;
+            const posX = normX * LAYOUT_WIDTH;
+            const posZ = normZ * LAYOUT_HEIGHT;
+
+            const detail = getPlotDetails(plotNo);
+            const status = getPlotStatus(detail, plotNo);
+            const colorHex = getPlotColor(status, plotNo, detail);
+            const colorThree = new THREE.Color(colorHex);
+
+            const areaSqYd = parseFloat(detail.plot_size) || 200;
+            const sizeFactor = Math.min(Math.max(areaSqYd / 200, 0.85), 2.2);
+            const pWidth = 3.6 * sizeFactor;
+            const pDepth = 2.8 * sizeFactor;
+            const pHeight = BASE_ELEVATION;
+
+            const plotGroup = new THREE.Group();
+            plotGroup.position.set(posX, 0, posZ);
+
+            const parcelGeo = new THREE.BoxGeometry(pWidth, pHeight, pDepth);
+            const parcelMat = new THREE.MeshStandardMaterial({
+                color: colorThree,
+                roughness: 0.35,
+                metalness: 0.15,
+                emissive: colorThree,
+                emissiveIntensity: 0.06,
+                transparent: true,
+                opacity: 0.95
+            });
+
+            const parcelMesh = new THREE.Mesh(parcelGeo, parcelMat);
+            parcelMesh.position.y = pHeight / 2;
+            parcelMesh.castShadow = true;
+            parcelMesh.receiveShadow = true;
+
+            parcelMesh.userData = {
+                plotNo,
+                detail,
+                status,
+                baseColorHex: colorHex,
+                baseColor: colorThree.clone(),
+                defaultY: pHeight / 2,
+                pWidth,
+                pDepth,
+                pHeight,
+                parentGroup: plotGroup
+            };
+
+            plotGroup.add(parcelMesh);
+            plotMeshes[plotNo] = parcelMesh;
+
+            const edgesGeo = new THREE.EdgesGeometry(parcelGeo);
+            const edgesMat = new THREE.LineBasicMaterial({
+                color: 0xffffff,
+                transparent: true,
+                opacity: 0.65
+            });
+            const wireframe = new THREE.LineSegments(edgesGeo, edgesMat);
+            parcelMesh.add(wireframe);
+
+            const hw = pWidth / 2;
+            const hd = pDepth / 2;
+            const corners = [
+                [-hw, -hd], [hw, -hd], [-hw, hd], [hw, hd]
+            ];
+            corners.forEach(([cx, cz]) => {
+                const stone = new THREE.Mesh(cornerStoneGeo, cornerStoneMat);
+                stone.position.set(cx, pHeight + 0.15, cz);
+                plotGroup.add(stone);
+            });
+
+            const labelSprite = createPlotNumberSprite(plotNo, colorHex);
+            labelSprite.position.set(0, pHeight + 1.8, 0);
+            plotGroup.add(labelSprite);
+            plotLabels[plotNo] = labelSprite;
+
+            scene.add(plotGroup);
+            plotGroups[plotNo] = plotGroup;
+        });
+    }
+
+    /**
+     * Setup Visual Beacon (Spotlight & Pulse Ring for Selected Plot)
+     */
+    function setupBeacon() {
+        const ringGeo = new THREE.RingGeometry(2.5, 3.2, 32);
+        const ringMat = new THREE.MeshBasicMaterial({
+            color: 0x38bdf8,
+            side: THREE.DoubleSide,
+            transparent: true,
+            opacity: 0.8
+        });
+        beaconRing = new THREE.Mesh(ringGeo, ringMat);
+        beaconRing.rotation.x = -Math.PI / 2;
+        beaconRing.position.y = 0.1;
+        beaconRing.visible = false;
+        scene.add(beaconRing);
+
+        beaconLight = new THREE.PointLight(0x38bdf8, 0, 40);
+        beaconLight.position.y = 6;
+        scene.add(beaconLight);
+    }
+
+    /**
+     * Event Listeners for Raycasting, Click, and Resize
+     */
+    function setupEventListeners(container) {
+        const raycaster = new THREE.Raycaster();
+        const mouse = new THREE.Vector2();
+
+        function getCanvasRelativeCoords(e) {
+            const rect = container.getBoundingClientRect();
+            return {
+                x: ((e.clientX - rect.left) / rect.width) * 2 - 1,
+                y: -((e.clientY - rect.top) / rect.height) * 2 + 1,
+                clientX: e.clientX,
+                clientY: e.clientY
+            };
+        }
+
+        container.addEventListener('mousemove', (e) => {
+            const coords = getCanvasRelativeCoords(e);
+            mouse.x = coords.x;
+            mouse.y = coords.y;
+
+            raycaster.setFromCamera(mouse, camera);
+            const meshArray = Object.values(plotMeshes);
+            const intersects = raycaster.intersectObjects(meshArray, false);
+
+            if (intersects.length > 0) {
+                const hit = intersects[0].object;
+                container.style.cursor = 'pointer';
+
+                if (hoveredPlotMesh !== hit) {
+                    unhoverPlot(hoveredPlotMesh);
+                    hoverPlot(hit);
+                    hoveredPlotMesh = hit;
+                }
+                show3DTooltip(hit.userData, coords.clientX, coords.clientY);
+            } else {
+                container.style.cursor = 'grab';
+                if (hoveredPlotMesh) {
+                    unhoverPlot(hoveredPlotMesh);
+                    hoveredPlotMesh = null;
+                }
+                hide3DTooltip();
+            }
+        });
+
+        container.addEventListener('mouseleave', () => {
+            if (hoveredPlotMesh) {
+                unhoverPlot(hoveredPlotMesh);
+                hoveredPlotMesh = null;
+            }
+            hide3DTooltip();
+        });
+
+        container.addEventListener('click', (e) => {
+            const coords = getCanvasRelativeCoords(e);
+            mouse.x = coords.x;
+            mouse.y = coords.y;
+
+            raycaster.setFromCamera(mouse, camera);
+            const meshArray = Object.values(plotMeshes);
+            const intersects = raycaster.intersectObjects(meshArray, false);
+
+            if (intersects.length > 0) {
+                const hit = intersects[0].object;
+                selectPlot(hit.userData.plotNo, true);
+            }
+        });
+
+        window.addEventListener('resize', onWindowResize);
+    }
+
+    function onWindowResize() {
+        const container = document.getElementById('threeCanvasContainer');
+        if (!container || !renderer || !camera) return;
+        let w = container.clientWidth;
+        let h = container.clientHeight;
+        if (!w || !h || w === 0 || h === 0) {
+            const viewport = document.getElementById('modal3DViewport') || container.parentElement;
+            w = (viewport && viewport.clientWidth > 0) ? viewport.clientWidth : Math.floor(window.innerWidth * 0.92);
+            h = (viewport && viewport.clientHeight > 0) ? viewport.clientHeight : Math.floor(window.innerHeight * 0.85);
+        }
+        if (w === 0 || h === 0) return;
+
+        camera.aspect = w / h;
+        camera.updateProjectionMatrix();
+        renderer.setSize(w, h);
+    }
+
+    /**
+     * Hover Visual Effects
+     */
+    function hoverPlot(mesh) {
+        if (!mesh) return;
+        mesh.position.y = mesh.userData.defaultY + 0.6;
+        if (mesh.material) {
+            mesh.material.emissiveIntensity = 0.45;
+        }
+    }
+
+    function unhoverPlot(mesh) {
+        if (!mesh) return;
+        mesh.position.y = mesh.userData.defaultY;
+        if (mesh.material) {
+            mesh.material.emissiveIntensity = (currentLightingMode === 'night') ? 0.55 : 0.06;
+        }
+    }
+
+    /**
+     * Select Plot in 3D: Move Camera, Light Beacon, Open Drawer
+     */
+    function selectPlot(plotNo, smoothFocus = true) {
+        const mesh = plotMeshes[plotNo];
+        if (!mesh) return;
+
+        selectedPlotNo = plotNo;
+        const u = mesh.userData;
+        const group = u.parentGroup;
+
+        if (beaconRing && group) {
+            beaconRing.position.set(group.position.x, 0.15, group.position.z);
+            beaconRing.visible = true;
+            beaconLight.position.set(group.position.x, 8, group.position.z);
+            beaconLight.color.set(u.baseColor);
+            beaconLight.intensity = 2.5;
+        }
+
+        populate3DInspectDrawer(u.detail, plotNo, u.status, u.baseColorHex);
+
+        if (smoothFocus && group) {
+            const targetPos = group.position.clone();
+            const offset = new THREE.Vector3(15, 22, 22);
+            animateCameraTo(targetPos.clone().add(offset), targetPos);
+        }
+    }
+
+    /**
+     * Smooth Camera Glide Animation
+     */
+    function animateCameraTo(newCamPos, newTargetPos) {
+        if (!camera || !controls) return;
+        cameraStartPos = camera.position.clone();
+        cameraEndPos = newCamPos.clone();
+        targetStartPos = controls.target.clone();
+        targetEndPos = newTargetPos.clone();
+        cameraAnimProgress = 0;
+        isCameraAnimating = true;
+    }
+
+    /**
+     * Filter Plots in 3D (All, Available, Sold, Hold, Mortgage, Registered)
+     */
+    function filter3DPlots(status) {
+        activeFilterStatus = String(status || 'ALL').toUpperCase();
+
+        Object.keys(plotMeshes).forEach(plotNo => {
+            const mesh = plotMeshes[plotNo];
+            const label = plotLabels[plotNo];
+            const group = plotGroups[plotNo];
+            if (!mesh) return;
+
+            const plotStatus = String(mesh.userData.status || '').toUpperCase();
+            const pNum = parseInt(plotNo, 10);
+            const isAspirealty = (pNum >= 1 && pNum <= 79 && ![18, 23, 24, 25, 39].includes(pNum));
+
+            let match = false;
+            if (activeFilterStatus === 'ALL') {
+                match = true;
+            } else if (activeFilterStatus === 'AVAILABLE' && (plotStatus === 'AVAILABLE' || (!isAspirealty && plotStatus === 'ASPIREALTY'))) {
+                match = true;
+            } else if (activeFilterStatus === 'ASPIREALTY' && (isAspirealty || plotStatus === 'ASPIREALTY')) {
+                match = true;
+            } else if (activeFilterStatus === plotStatus) {
+                match = true;
+            }
+
+            if (match) {
+                mesh.material.opacity = 0.95;
+                mesh.material.color.copy(mesh.userData.baseColor);
+                if (label) label.visible = true;
+                if (group) group.visible = true;
+            } else {
+                mesh.material.opacity = 0.18;
+                mesh.material.color.set(0x334155);
+                if (label) label.visible = false;
+            }
+        });
+    }
+
+    /**
+     * Render & Animation Loop
+     */
+    function startAnimationLoop() {
+        if (animFrameId) cancelAnimationFrame(animFrameId);
+
+        function animate() {
+            if (!isModalOpen) return;
+            animFrameId = requestAnimationFrame(animate);
+
+            if (isCameraAnimating) {
+                cameraAnimProgress += CAMERA_ANIM_SPEED;
+                if (cameraAnimProgress >= 1) {
+                    cameraAnimProgress = 1;
+                    isCameraAnimating = false;
+                }
+                const t = 1 - Math.pow(1 - cameraAnimProgress, 3);
+                camera.position.lerpVectors(cameraStartPos, cameraEndPos, t);
+                if (controls) controls.target.lerpVectors(targetStartPos, targetEndPos, t);
+            }
+
+            if (isAutoRotating && !isCameraAnimating && controls) {
+                controls.autoRotate = true;
+                controls.autoRotateSpeed = 1.2;
+            } else if (controls) {
+                controls.autoRotate = false;
+            }
+
+            if (beaconRing && beaconRing.visible) {
+                const time = performance.now() * 0.003;
+                const s = 1 + Math.sin(time) * 0.15;
+                beaconRing.scale.set(s, s, 1);
+            }
+
+            if (controls) controls.update();
+            if (renderer && scene && camera) {
+                renderer.render(scene, camera);
+            }
+        }
+
+        animate();
+    }
+
+    /**
+     * Tooltip DOM handling
+     */
+    function show3DTooltip(userData, clientX, clientY) {
+        const tooltip = document.getElementById('threePlotTooltip');
+        if (!tooltip) return;
+
+        const d = userData.detail || {};
+        const plotNo = userData.plotNo;
+        const status = userData.status;
+        const color = userData.baseColorHex;
+        const size = d.plot_size || 'N/A';
+        const facing = d.facing || 'East';
+
+        tooltip.innerHTML = `
+            <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 4px;">
+                <span style="font-weight: 800; font-size: 14px; color: #fff;">Plot #${plotNo}</span>
+                <span style="font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 4px; background: ${color}; color: #fff;">${status}</span>
+            </div>
+            <div style="font-size: 11px; color: #94a3b8; line-height: 1.4;">
+                <div>📐 Area: <strong style="color: #f8fafc;">${size} Sq. Yds</strong></div>
+                <div>🧭 Facing: <strong style="color: #f8fafc;">${facing}</strong></div>
+            </div>
+            <div style="font-size: 9.5px; color: #38bdf8; margin-top: 5px; font-weight: 600;">
+                <i class="fa-solid fa-hand-pointer"></i> Click plot to inspect & action
+            </div>
+        `;
+
+        tooltip.style.left = `${clientX + 16}px`;
+        tooltip.style.top = `${clientY + 16}px`;
+        tooltip.style.display = 'block';
+    }
+
+    function hide3DTooltip() {
+        const tooltip = document.getElementById('threePlotTooltip');
+        if (tooltip) tooltip.style.display = 'none';
+    }
+
+    /**
+     * Populate Floating Quick Inspect Drawer
+     */
+    function populate3DInspectDrawer(detail, plotNo, status, colorHex) {
+        const drawer = document.getElementById('threeInspectDrawer');
+        if (!drawer) return;
+
+        const size = (detail && detail.plot_size) ? detail.plot_size + ' Sq. Yards' : 'N/A';
+        const facing = (detail && detail.facing) ? detail.facing : 'N/A';
+        const refName = (detail && detail.reference_name) ? detail.reference_name : 'ASPIREALTY';
+        const dimN = (detail && detail.dim_north) ? detail.dim_north : '-';
+        const dimS = (detail && detail.dim_south) ? detail.dim_south : '-';
+        const dimE = (detail && detail.dim_east) ? detail.dim_east : '-';
+        const dimW = (detail && detail.dim_west) ? detail.dim_west : '-';
+
+        const titleEl = document.getElementById('threeInspectPlotTitle');
+        if (titleEl) {
+            titleEl.innerHTML = `
+                <span>Plot #${plotNo}</span>
+                <span class="status-badge" style="--badge-color: ${colorHex}; --badge-glow: ${colorHex}; font-size: 10.5px; padding: 2px 8px;">${status}</span>
+            `;
+        }
+
+        const bodyEl = document.getElementById('threeInspectDetailsBody');
+        if (bodyEl) {
+            bodyEl.innerHTML = `
+                <div class="detail-row" style="padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,0.06); display: flex; justify-content: space-between; font-size: 12px;">
+                    <span style="color: var(--text-secondary);">Plot Area</span>
+                    <strong style="color: var(--text-primary); font-weight: 700;">${size}</strong>
+                </div>
+                <div class="detail-row" style="padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,0.06); display: flex; justify-content: space-between; font-size: 12px;">
+                    <span style="color: var(--text-secondary);">Facing</span>
+                    <strong style="color: var(--text-primary); font-weight: 700;">${facing}</strong>
+                </div>
+                <div class="detail-row" style="padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,0.06); display: flex; justify-content: space-between; font-size: 12px;">
+                    <span style="color: var(--text-secondary);">Reference</span>
+                    <strong style="color: #60a5fa; font-weight: 700;">${refName}</strong>
+                </div>
+                <div style="margin-top: 8px; font-size: 11px; color: var(--text-secondary);">
+                    <div style="font-weight: 600; margin-bottom: 4px; color: #94a3b8;">Dimensions:</div>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px; font-size: 11px; background: rgba(0,0,0,0.25); padding: 6px; border-radius: 6px;">
+                        <div>N: <strong style="color: #fff;">${dimN}</strong></div>
+                        <div>S: <strong style="color: #fff;">${dimS}</strong></div>
+                        <div>E: <strong style="color: #fff;">${dimE}</strong></div>
+                        <div>W: <strong style="color: #fff;">${dimW}</strong></div>
+                    </div>
+                </div>
+            `;
+        }
+
+        const openFullModalBtn = document.getElementById('threeOpenFullPlotModalBtn');
+        if (openFullModalBtn) {
+            openFullModalBtn.onclick = () => {
+                if (typeof openPlotModal === 'function') {
+                    openPlotModal(plotNo);
+                }
+            };
+        }
+
+        const view2DBtn = document.getElementById('threeViewIn2DBtn');
+        if (view2DBtn) {
+            view2DBtn.onclick = () => {
+                close3DLayoutModal();
+                if (typeof focusOnPlot === 'function') {
+                    focusOnPlot(plotNo);
+                }
+                if (typeof openPlotModal === 'function') {
+                    openPlotModal(plotNo);
+                }
+            };
+        }
+
+        drawer.classList.add('open');
+    }
+
+    /**
+     * UI Modal Open/Close Controls
+     */
+    function open3DLayoutModal(targetPlotNo = null) {
+        const backdrop = document.getElementById('modal3DLayoutBackdrop');
+        if (!backdrop) return;
+
+        backdrop.style.display = 'flex';
+        backdrop.classList.add('show');
+        isModalOpen = true;
+
+        // Use requestAnimationFrame so browser computes dimensions first
+        requestAnimationFrame(() => {
+            if (!renderer) {
+                const ok = initThreeScene();
+                if (!ok) {
+                    console.warn('Three.js scene init delayed.');
+                    return;
+                }
+            }
+
+            onWindowResize();
+            startAnimationLoop();
+
+            if (targetPlotNo) {
+                setTimeout(() => {
+                    selectPlot(String(targetPlotNo), true);
+                }, 200);
+            } else {
+                if (controls && camera) {
+                    const preset = getCameraPreset('overview');
+                    camera.position.copy(preset.pos);
+                    controls.target.copy(preset.target);
+                    controls.update();
+                }
+            }
+        });
+    }
+
+    function close3DLayoutModal() {
+        const backdrop = document.getElementById('modal3DLayoutBackdrop');
+        if (backdrop) {
+            backdrop.classList.remove('show');
+            backdrop.style.display = 'none';
+        }
+        isModalOpen = false;
+        if (animFrameId) {
+            cancelAnimationFrame(animFrameId);
+            animFrameId = null;
+        }
+        hide3DTooltip();
+        const drawer = document.getElementById('threeInspectDrawer');
+        if (drawer) drawer.classList.remove('open');
+    }
+
+    /**
+     * Setup Modal Controls (Buttons, Presets, Filters, Lighting, Search)
+     */
+    function setupModalUI() {
+        // Open Button from Header
+        const openBtn = document.getElementById('open3DModalBtn');
+        if (openBtn) {
+            openBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                open3DLayoutModal();
+            });
+        }
+
+        // Open Button from Sidebar
+        const sidebarLaunchBtn = document.getElementById('sidebarLaunch3DBtn');
+        if (sidebarLaunchBtn) {
+            sidebarLaunchBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                open3DLayoutModal();
+            });
+        }
+
+        // Close Button
+        const closeBtn = document.getElementById('modal3DCloseBtn');
+        if (closeBtn) {
+            closeBtn.addEventListener('click', close3DLayoutModal);
+        }
+
+        // Drawer Close Button
+        const drawerCloseBtn = document.getElementById('threeInspectCloseBtn');
+        if (drawerCloseBtn) {
+            drawerCloseBtn.addEventListener('click', () => {
+                const drawer = document.getElementById('threeInspectDrawer');
+                if (drawer) drawer.classList.remove('open');
+                if (beaconRing) beaconRing.visible = false;
+                if (beaconLight) beaconLight.intensity = 0;
+            });
+        }
+
+        // Camera Presets
+        document.querySelectorAll('.btn-cam-preset').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.btn-cam-preset').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                const presetKey = btn.dataset.preset;
+                const preset = getCameraPreset(presetKey);
+                if (preset) {
+                    animateCameraTo(preset.pos, preset.target);
+                }
+            });
+        });
+
+        // Lighting Mode Buttons
+        document.querySelectorAll('.btn-light-mode').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.btn-light-mode').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                applyLightingMode(btn.dataset.mode);
+            });
+        });
+
+        // Auto-Rotate Toggle
+        const autoRotateBtn = document.getElementById('threeAutoRotateBtn');
+        if (autoRotateBtn) {
+            autoRotateBtn.addEventListener('click', () => {
+                isAutoRotating = !isAutoRotating;
+                autoRotateBtn.classList.toggle('active', isAutoRotating);
+            });
+        }
+
+        // Reset View
+        const resetViewBtn = document.getElementById('threeResetViewBtn');
+        if (resetViewBtn) {
+            resetViewBtn.addEventListener('click', () => {
+                const preset = getCameraPreset('overview');
+                animateCameraTo(preset.pos, preset.target);
+            });
+        }
+
+        // Fullscreen Toggle
+        const fullScreenBtn = document.getElementById('threeFullscreenBtn');
+        if (fullScreenBtn) {
+            fullScreenBtn.addEventListener('click', () => {
+                const modal = document.getElementById('modal3DLayout');
+                if (!document.fullscreenElement) {
+                    if (modal && modal.requestFullscreen) modal.requestFullscreen();
+                } else {
+                    if (document.exitFullscreen) document.exitFullscreen();
+                }
+            });
+        }
+
+        // 3D Status Filter Pills
+        document.querySelectorAll('.three-filter-pill').forEach(pill => {
+            pill.addEventListener('click', () => {
+                document.querySelectorAll('.three-filter-pill').forEach(p => p.classList.remove('active'));
+                pill.classList.add('active');
+                filter3DPlots(pill.dataset.status);
+            });
+        });
+
+        // 3D Plot Search / Jump Input
+        const plotSearchInput = document.getElementById('threePlotSearchInput');
+        if (plotSearchInput) {
+            plotSearchInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    const plotNo = plotSearchInput.value.trim();
+                    if (plotMeshes[plotNo]) {
+                        selectPlot(plotNo, true);
+                    } else {
+                        plotSearchInput.classList.add('error');
+                        setTimeout(() => plotSearchInput.classList.remove('error'), 1000);
+                    }
+                }
+            });
+        }
+
+        // Keyboard Shortcut: Key '3' opens 3D view; 'Escape' closes
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && isModalOpen) {
+                close3DLayoutModal();
+            } else if ((e.key === '3' || e.key === '#') && !isModalOpen && !['INPUT', 'TEXTAREA'].includes(document.activeElement.tagName)) {
+                open3DLayoutModal();
+            }
+        });
+
+        console.log('✅ Tada Layout 3D Engine ready. Press "3" or click "3D Interactive View" to launch.');
+    }
+
+    // Initialize UI on DOM Ready
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', setupModalUI);
+    } else {
+        setupModalUI();
+    }
+
+    // Public API exposed to window
+    window.open3DLayoutModal = open3DLayoutModal;
+    window.close3DLayoutModal = close3DLayoutModal;
+    window.focus3DPlot = selectPlot;
+
+})();

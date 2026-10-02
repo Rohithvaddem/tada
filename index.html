@@ -60,7 +60,7 @@
                         <p style="font-size: 11px; color: var(--text-secondary); margin-bottom: 10px; line-height: 1.4;">
                             Explore real-time 3D terrain, fly through open plots, sunlight simulator &amp; status elevation.
                         </p>
-                        <button id="sidebarLaunch3DBtn" onclick="if(window.open3DLayoutModal)window.open3DLayoutModal();" class="admin-login-btn" style="background: linear-gradient(135deg, #a855f7, #3b82f6); color: #fff; border: none; font-weight: 700; width: 100%; border-radius: 8px; cursor: pointer; padding: 10px; display: flex; align-items: center; justify-content: center; gap: 8px;">
+                        <button id="sidebarLaunch3DBtn" onclick="if(window.open3DLayoutModal){window.open3DLayoutModal();}else{alert('3D view engine is initializing, please try again in a moment.');}" class="admin-login-btn" style="background: linear-gradient(135deg, #a855f7, #3b82f6); color: #fff; border: none; font-weight: 700; width: 100%; border-radius: 8px; cursor: pointer; padding: 10px; display: flex; align-items: center; justify-content: center; gap: 8px;">
                             <i class="fa-solid fa-vr-cardboard"></i> Launch 3D Tour
                         </button>
                     </div>
@@ -121,7 +121,7 @@
                         style="display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; margin-left: 10px; font-weight: 600; cursor: pointer; border-radius: 6px; background: rgba(59, 130, 246, 0.15); border: 1px solid #3b82f6; color: #60a5fa;">
                         <i class="fa-solid fa-map"></i> <span>2D Plan View</span>
                     </button>
-                    <button class="btn-3d-header" id="open3DModalBtn" onclick="if(window.open3DLayoutModal)window.open3DLayoutModal();" title="Launch Interactive 3D Digital Layout Model">
+                    <button class="btn-3d-header" id="open3DModalBtn" onclick="if(window.open3DLayoutModal){window.open3DLayoutModal();}else{alert('3D view engine is initializing, please try again in a moment.');}" title="Launch Interactive 3D Digital Layout Model">
                         <i class="fa-solid fa-cube"></i> <span>3D Interactive View</span>
                     </button>
                 </div>
@@ -595,21 +595,21 @@
 
     <!-- Scripts -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script src="three.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script>
         if (typeof THREE === 'undefined') {
-            document.write('<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"><\/script>');
+            document.write('<script src="three.min.js"><\/script>');
         }
     </script>
-    <script src="OrbitControls.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
     <script>
         if (typeof THREE !== 'undefined' && !THREE.OrbitControls) {
-            document.write('<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"><\/script>');
+            document.write('<script src="OrbitControls.js"><\/script>');
         }
     </script>
     <script src="plot_coords.js?v=1.9.0"></script>
     <script src="data.js?v=1.9.0"></script>
-    <script src="three_layout.js?v=1.0.1"></script>
+    <script src="three_layout.js?v=1.9.0"></script>
     <script src="app.js?v=1.9.0"></script>
 </body>
 
