@@ -13,7 +13,6 @@
     const plotMeshes = {};       // plotNo -> THREE.Mesh
     const plotLabels = {};       // plotNo -> THREE.Sprite
     const plotGroups = {};       // plotNo -> THREE.Group
-    let plotTreeGroup;
     let lights = {};
     let currentLightingMode = 'day';
     let isAutoRotating = false;
@@ -152,91 +151,6 @@
     }
 
     /**
-     * Build procedural low-poly trees for greenery and avenue realism
-     */
-    function createTreeGroup() {
-        const group = new THREE.Group();
-        const trunkGeo = new THREE.CylinderGeometry(0.2, 0.35, 1.8, 6);
-        const trunkMat = new THREE.MeshStandardMaterial({ color: 0x4a2e18, roughness: 0.9 });
-
-        const foliageGeo1 = new THREE.ConeGeometry(1.6, 2.8, 7);
-        const foliageGeo2 = new THREE.ConeGeometry(1.2, 2.2, 7);
-        const foliageMat1 = new THREE.MeshStandardMaterial({ color: 0x15803d, roughness: 0.7, flatShading: true });
-        const foliageMat2 = new THREE.MeshStandardMaterial({ color: 0x22c55e, roughness: 0.6, flatShading: true });
-
-        // Place trees along perimeter borders and key avenues
-        const treeSpots = [
-            [-110, -82], [-85, -82], [-60, -82], [-35, -82], [-10, -82], [15, -82], [40, -82], [65, -82], [90, -82], [110, -82],
-            [-110, 82], [-85, 82], [-60, 82], [-35, 82], [-10, 82], [15, 82], [40, 82], [65, 82], [90, 82], [110, 82],
-            [-114, -60], [-114, -30], [-114, 0], [-114, 30], [-114, 60],
-            [114, -60], [114, -30], [114, 0], [114, 30], [114, 60],
-            [-45, -15], [-45, 15], [35, -15], [35, 15], [5, -45], [5, 45]
-        ];
-
-        treeSpots.forEach(([x, z]) => {
-            const tree = new THREE.Group();
-            
-            const trunk = new THREE.Mesh(trunkGeo, trunkMat);
-            trunk.position.y = 0.9;
-            trunk.castShadow = true;
-            trunk.receiveShadow = true;
-            tree.add(trunk);
-
-            const foliage1 = new THREE.Mesh(foliageGeo1, foliageMat1);
-            foliage1.position.y = 2.4;
-            foliage1.castShadow = true;
-            tree.add(foliage1);
-
-            const foliage2 = new THREE.Mesh(foliageGeo2, foliageMat2);
-            foliage2.position.y = 3.6;
-            foliage2.castShadow = true;
-            tree.add(foliage2);
-
-            const s = 0.85 + Math.random() * 0.4;
-            tree.scale.set(s, s, s);
-            tree.rotation.y = Math.random() * Math.PI * 2;
-            tree.position.set(x, 0, z);
-
-            group.add(tree);
-        });
-
-        return group;
-    }
-
-    /**
-     * Create Entrance Arch / Gate Structure
-     */
-    function createEntranceArch() {
-        const arch = new THREE.Group();
-        const pillarMat = new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.5 });
-        const goldMat = new THREE.MeshStandardMaterial({ color: 0xf59e0b, metalness: 0.7, roughness: 0.3 });
-
-        const pillarGeo = new THREE.BoxGeometry(1.6, 6, 1.6);
-        const pLeft = new THREE.Mesh(pillarGeo, pillarMat);
-        pLeft.position.set(-6, 3, 85);
-        pLeft.castShadow = true;
-        arch.add(pLeft);
-
-        const pRight = new THREE.Mesh(pillarGeo, pillarMat);
-        pRight.position.set(6, 3, 85);
-        pRight.castShadow = true;
-        arch.add(pRight);
-
-        const beamGeo = new THREE.BoxGeometry(14, 1.4, 1.8);
-        const beam = new THREE.Mesh(beamGeo, pillarMat);
-        beam.position.set(0, 6.2, 85);
-        beam.castShadow = true;
-        arch.add(beam);
-
-        const signGeo = new THREE.BoxGeometry(11, 0.8, 0.2);
-        const sign = new THREE.Mesh(signGeo, goldMat);
-        sign.position.set(0, 6.2, 85.95);
-        arch.add(sign);
-
-        return arch;
-    }
-
-    /**
      * Create a procedural architectural fallback texture for ground
      */
     function createProceduralGroundTexture() {
@@ -245,25 +159,8 @@
         canvas.height = 1536;
         const ctx = canvas.getContext('2d');
 
-        // Crisp white blueprint paper background
-        ctx.fillStyle = '#ffffff';
-        ctx.fillRect(0, 0, 2048, 1536);
-
-        // Subtle architectural grid
-        ctx.strokeStyle = '#e2e8f0';
-        ctx.lineWidth = 1;
-        for (let x = 0; x <= 2048; x += 64) {
-            ctx.beginPath();
-            ctx.moveTo(x, 0);
-            ctx.lineTo(x, 1536);
-            ctx.stroke();
-        }
-        for (let y = 0; y <= 1536; y += 64) {
-            ctx.beginPath();
-            ctx.moveTo(0, y);
-            ctx.lineTo(2048, y);
-            ctx.stroke();
-        }
+        // Transparent background so satellite terrain shows through
+        ctx.clearRect(0, 0, 2048, 1536);
 
         // Main Avenue Roads
         ctx.fillStyle = '#334155';
@@ -291,17 +188,6 @@
         ctx.textBaseline = 'middle';
         ctx.fillText('40 FEET MAIN ROAD', 550, 700);
         ctx.fillText('40 FEET MAIN ROAD', 1450, 700);
-
-        // Layout Outer Boundary
-        ctx.strokeStyle = '#0284c7';
-        ctx.lineWidth = 8;
-        ctx.strokeRect(40, 40, 1968, 1456);
-
-        // Header Title
-        ctx.fillStyle = '#0f172a';
-        ctx.font = 'bold 36px "Plus Jakarta Sans", sans-serif';
-        ctx.textAlign = 'left';
-        ctx.fillText('TADA APPROVED DIGITAL LAYOUT MODEL', 70, 90);
 
         // Draw Plot Parcels & numbers from plotCoordinates
         const coordsSource = (typeof plotCoordinates !== 'undefined') ? plotCoordinates : {};
@@ -577,7 +463,9 @@
         const layoutMat = new THREE.MeshBasicMaterial({
             map: fallbackTex,
             color: 0xffffff,
-            side: THREE.DoubleSide
+            side: THREE.DoubleSide,
+            transparent: true,
+            opacity: 0.95
         });
 
         groundMesh = new THREE.Mesh(layoutGeo, layoutMat);
@@ -596,6 +484,8 @@
             tex.magFilter = THREE.LinearFilter;
             tex.needsUpdate = true;
             layoutTexture = tex;
+            groundMesh.material.transparent = true;
+            groundMesh.material.opacity = 0.95;
             groundMesh.material.map = tex;
             groundMesh.material.needsUpdate = true;
         }
@@ -608,83 +498,28 @@
             });
         }
 
-        // Priority 2: External texture fallback/supplement
+        // Priority 2: External texture fallback/supplement (Loads transparent map_layout_3d)
         texLoader.load(
-            'map_layout_3d_white.webp?v=1.9.0',
+            'map_layout_3d.webp?v=1.9.0',
             (tex) => {
                 applyLayoutTexture(tex);
-                console.log('✅ Loaded Tada 3D Blueprint layout: map_layout_3d_white.webp');
+                console.log('✅ Loaded Tada 3D Blueprint layout: map_layout_3d.webp');
             },
             undefined,
             () => {
                 texLoader.load(
-                    'map_layout_3d_white.jpg?v=1.9.0',
+                    'map_layout_3d.jpg?v=1.9.0',
                     (texJpg) => {
                         applyLayoutTexture(texJpg);
-                        console.log('✅ Loaded Tada 3D Blueprint layout: map_layout_3d_white.jpg');
+                        console.log('✅ Loaded Tada 3D Blueprint layout: map_layout_3d.jpg');
                     },
                     undefined,
                     () => {
-                        texLoader.load(
-                            'map_layout_3d.webp?v=1.9.0',
-                            applyLayoutTexture,
-                            undefined,
-                            () => {
-                                texLoader.load(
-                                    'map_layout_3d.jpg?v=1.9.0',
-                                    applyLayoutTexture,
-                                    undefined,
-                                    () => {
-                                        console.log('Using procedural layout grid fallback.');
-                                    }
-                                );
-                            }
-                        );
+                        console.log('Using procedural layout grid fallback.');
                     }
                 );
             }
         );
-
-        // Boundary compound walls (Added to layoutWorldGroup)
-        const wallMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.8 });
-        const wallThickness = 1.2;
-        const wallHeight = 1.0;
-
-        const nWallGeo = new THREE.BoxGeometry(LAYOUT_WIDTH + 4, wallHeight, wallThickness);
-        const nWall = new THREE.Mesh(nWallGeo, wallMat);
-        nWall.position.set(0, wallHeight / 2, -(LAYOUT_HEIGHT / 2 + 1));
-        nWall.castShadow = true;
-        layoutWorldGroup.add(nWall);
-
-        const sWallPartGeo = new THREE.BoxGeometry((LAYOUT_WIDTH - 24) / 2, wallHeight, wallThickness);
-        const sWallL = new THREE.Mesh(sWallPartGeo, wallMat);
-        sWallL.position.set(-((LAYOUT_WIDTH + 24) / 4), wallHeight / 2, (LAYOUT_HEIGHT / 2 + 1));
-        sWallL.castShadow = true;
-        layoutWorldGroup.add(sWallL);
-
-        const sWallR = new THREE.Mesh(sWallPartGeo, wallMat);
-        sWallR.position.set(((LAYOUT_WIDTH + 24) / 4), wallHeight / 2, (LAYOUT_HEIGHT / 2 + 1));
-        sWallR.castShadow = true;
-        layoutWorldGroup.add(sWallR);
-
-        const wWallGeo = new THREE.BoxGeometry(wallThickness, wallHeight, LAYOUT_HEIGHT);
-        const wWall = new THREE.Mesh(wWallGeo, wallMat);
-        wWall.position.set(-(LAYOUT_WIDTH / 2 + 1), wallHeight / 2, 0);
-        wWall.castShadow = true;
-        layoutWorldGroup.add(wWall);
-
-        const eWallGeo = new THREE.BoxGeometry(wallThickness, wallHeight, LAYOUT_HEIGHT);
-        const eWall = new THREE.Mesh(eWallGeo, wallMat);
-        eWall.position.set((LAYOUT_WIDTH / 2 + 1), wallHeight / 2, 0);
-        eWall.castShadow = true;
-        layoutWorldGroup.add(eWall);
-
-        // 3D Trees and Entrance Arch (Added to layoutWorldGroup)
-        plotTreeGroup = createTreeGroup();
-        layoutWorldGroup.add(plotTreeGroup);
-
-        const entranceArch = createEntranceArch();
-        layoutWorldGroup.add(entranceArch);
     }
 
     /**
