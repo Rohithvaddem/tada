@@ -104,15 +104,15 @@
      */
     function createPlotNumberSprite(plotNo, hexColor) {
         const canvas = document.createElement('canvas');
-        canvas.width = 128;
-        canvas.height = 64;
+        canvas.width = 256;
+        canvas.height = 128;
         const ctx = canvas.getContext('2d');
 
-        // Draw pill shape background
-        ctx.fillStyle = 'rgba(15, 23, 42, 0.88)';
+        // Draw pill shape background with dark sleek glass fill
+        ctx.fillStyle = 'rgba(15, 23, 42, 0.94)';
         ctx.beginPath();
-        const r = 18;
-        const x = 14, y = 10, w = 100, h = 44;
+        const r = 36;
+        const x = 20, y = 16, w = 216, h = 96;
         ctx.moveTo(x + r, y);
         ctx.lineTo(x + w - r, y);
         ctx.quadraticCurveTo(x + w, y, x + w, y + r);
@@ -125,27 +125,35 @@
         ctx.closePath();
         ctx.fill();
 
-        // Border colored with status
-        ctx.lineWidth = 4;
+        // Prominent border colored with plot status
+        ctx.lineWidth = 8;
         ctx.strokeStyle = hexColor || '#38bdf8';
         ctx.stroke();
 
-        // Text
+        // Bold Crisp White Number
         ctx.fillStyle = '#ffffff';
-        ctx.font = 'bold 26px "Plus Jakarta Sans", Outfit, sans-serif';
+        ctx.font = '900 52px "Plus Jakarta Sans", Outfit, Arial, sans-serif';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.fillText(String(plotNo), 64, 32);
+        ctx.fillText(String(plotNo), 128, 64);
 
         const texture = new THREE.CanvasTexture(canvas);
         texture.minFilter = THREE.LinearFilter;
+        texture.magFilter = THREE.LinearFilter;
+        if (THREE.sRGBEncoding) {
+            texture.encoding = THREE.sRGBEncoding;
+        }
+        texture.needsUpdate = true;
+
         const material = new THREE.SpriteMaterial({
             map: texture,
             transparent: true,
-            depthTest: false
+            depthTest: false,
+            depthWrite: false
         });
         const sprite = new THREE.Sprite(material);
-        sprite.scale.set(3.4, 1.7, 1);
+        sprite.scale.set(5.2, 2.6, 1);
+        sprite.renderOrder = 999;
         sprite.userData = { plotNo };
         return sprite;
     }
@@ -766,6 +774,7 @@
             // Plot Number Sprite Floating Above Roof Peak
             const labelSprite = createPlotNumberSprite(plotNo, colorHex);
             labelSprite.position.set(0, plinthH + houseH + roofH + 1.25, 0);
+            labelSprite.renderOrder = 999;
             plotGroup.add(labelSprite);
             plotLabels[plotNo] = labelSprite;
 
