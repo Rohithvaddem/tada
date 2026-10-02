@@ -245,7 +245,7 @@
         // 1. Scene
         scene = new THREE.Scene();
         scene.background = new THREE.Color(0x87ceeb);
-        scene.fog = new THREE.FogExp2(0xb0d4eb, 0.0006);
+        scene.fog = new THREE.Fog(0x87ceeb, 450, 2200);
 
         // 2. Camera
         const overviewPreset = getCameraPreset('overview');
@@ -301,13 +301,13 @@
      * Setup Lights and Lighting Modes
      */
     function setupLighting() {
-        lights.ambient = new THREE.AmbientLight(0xffffff, 0.55);
+        lights.ambient = new THREE.AmbientLight(0xffffff, 0.45);
         scene.add(lights.ambient);
 
-        lights.hemi = new THREE.HemisphereLight(0xe0f2fe, 0x166534, 0.6);
+        lights.hemi = new THREE.HemisphereLight(0xe0f2fe, 0x166534, 0.35);
         scene.add(lights.hemi);
 
-        lights.sun = new THREE.DirectionalLight(0xfffbeb, 1.3);
+        lights.sun = new THREE.DirectionalLight(0xfffdf5, 0.95);
         lights.sun.position.set(80, 140, 100);
         lights.sun.castShadow = true;
         lights.sun.shadow.mapSize.width = 2048;
@@ -344,17 +344,17 @@
 
         if (mode === 'day') {
             scene.background.set(0x87ceeb);
-            scene.fog.color.set(0xb0d4eb);
+            if (scene.fog) scene.fog.color.set(0x87ceeb);
             lights.ambient.color.set(0xffffff);
-            lights.ambient.intensity = 0.65;
+            lights.ambient.intensity = 0.45;
             lights.hemi.color.set(0xe0f2fe);
             lights.hemi.groundColor.set(0x166534);
-            lights.hemi.intensity = 0.6;
-            lights.sun.color.set(0xfffbeb);
-            lights.sun.intensity = 1.3;
+            lights.hemi.intensity = 0.35;
+            lights.sun.color.set(0xfffdf5);
+            lights.sun.intensity = 0.95;
             lights.sun.position.set(80, 140, 100);
             lights.nightLightsGroup.children.forEach(l => l.intensity = 0);
-            updatePlotEmissives(0.05);
+            updatePlotEmissives(0.12);
         } else if (mode === 'sunset') {
             scene.background.set(0xfdba74);
             scene.fog.color.set(0xfed7aa);
@@ -404,23 +404,23 @@
         // 1. Vast Outer Landscape Terrain (Far horizon surrounding Tada)
         const outerGeo = new THREE.PlaneGeometry(2400, 2400);
         const outerMat = new THREE.MeshBasicMaterial({
-            color: 0x14281d, // Satellite green-earth tone
+            color: 0x162a1c, // Natural satellite terrain green-earth tone
             side: THREE.DoubleSide
         });
         const outerMesh = new THREE.Mesh(outerGeo, outerMat);
         outerMesh.rotation.x = -Math.PI / 2;
-        outerMesh.position.set(-138.96, -0.25, -71.69);
+        outerMesh.position.set(10.03, -0.25, 2.68);
         scene.add(outerMesh);
 
-        // 2. Real Google Satellite Map Terrain Plane (Centered on calibrated Tada coordinates)
-        const satGeo = new THREE.PlaneGeometry(894, 894, 16, 16);
+        // 2. Real Esri Satellite World Imagery Terrain Plane (Centered on calibrated Tada coordinates)
+        const satGeo = new THREE.PlaneGeometry(447, 426.4, 16, 16);
         const satMat = new THREE.MeshBasicMaterial({
             color: 0xffffff,
             side: THREE.DoubleSide
         });
         satelliteMesh = new THREE.Mesh(satGeo, satMat);
         satelliteMesh.rotation.x = -Math.PI / 2;
-        satelliteMesh.position.set(-138.96, -0.15, -71.69);
+        satelliteMesh.position.set(10.03, -0.15, 2.68);
         scene.add(satelliteMesh);
 
         function applySatTexture(tex) {
@@ -431,6 +431,9 @@
             tex.generateMipmaps = true;
             tex.minFilter = THREE.LinearMipmapLinearFilter;
             tex.magFilter = THREE.LinearFilter;
+            if (THREE.sRGBEncoding) {
+                tex.encoding = THREE.sRGBEncoding;
+            }
             tex.needsUpdate = true;
             satelliteMesh.material.map = tex;
             satelliteMesh.material.needsUpdate = true;
@@ -440,20 +443,20 @@
         if (typeof TADA_SATELLITE_TEXTURE_B64 !== 'undefined' && TADA_SATELLITE_TEXTURE_B64) {
             texLoader.load(TADA_SATELLITE_TEXTURE_B64, (tex) => {
                 applySatTexture(tex);
-                console.log('✅ Loaded Google Satellite terrain via embedded Base64 URI.');
+                console.log('✅ Loaded Esri World Imagery satellite terrain via embedded Base64 URI.');
             });
         }
 
-        // Priority 2: External Google Satellite image files
+        // Priority 2: External Esri Satellite image files
         texLoader.load(
-            'tada_satellite_ground.webp?v=1.9.0',
+            'tada_satellite_ground.webp?v=1.9.1',
             (tex) => {
                 applySatTexture(tex);
-                console.log('✅ Loaded Google Satellite terrain: tada_satellite_ground.webp');
+                console.log('✅ Loaded Esri satellite terrain: tada_satellite_ground.webp');
             },
             undefined,
             () => {
-                texLoader.load('tada_satellite_ground.jpg?v=1.9.0', applySatTexture);
+                texLoader.load('tada_satellite_ground.jpg?v=1.9.1', applySatTexture);
             }
         );
 
@@ -465,7 +468,8 @@
             color: 0xffffff,
             side: THREE.DoubleSide,
             transparent: true,
-            opacity: 0.95
+            opacity: 1.0,
+            depthWrite: false
         });
 
         groundMesh = new THREE.Mesh(layoutGeo, layoutMat);
@@ -482,10 +486,14 @@
             tex.generateMipmaps = true;
             tex.minFilter = THREE.LinearMipmapLinearFilter;
             tex.magFilter = THREE.LinearFilter;
+            if (THREE.sRGBEncoding) {
+                tex.encoding = THREE.sRGBEncoding;
+            }
             tex.needsUpdate = true;
             layoutTexture = tex;
             groundMesh.material.transparent = true;
-            groundMesh.material.opacity = 0.95;
+            groundMesh.material.opacity = 1.0;
+            groundMesh.material.depthWrite = false;
             groundMesh.material.map = tex;
             groundMesh.material.needsUpdate = true;
         }
@@ -500,7 +508,7 @@
 
         // Priority 2: External texture fallback/supplement (Loads transparent map_layout_3d)
         texLoader.load(
-            'map_layout_3d.webp?v=1.9.0',
+            'map_layout_3d.webp?v=1.9.1',
             (tex) => {
                 applyLayoutTexture(tex);
                 console.log('✅ Loaded Tada 3D Blueprint layout: map_layout_3d.webp');
@@ -508,7 +516,7 @@
             undefined,
             () => {
                 texLoader.load(
-                    'map_layout_3d.jpg?v=1.9.0',
+                    'map_layout_3d.jpg?v=1.9.1',
                     (texJpg) => {
                         applyLayoutTexture(texJpg);
                         console.log('✅ Loaded Tada 3D Blueprint layout: map_layout_3d.jpg');
@@ -563,12 +571,13 @@
             const parcelGeo = new THREE.BoxGeometry(pWidth, pHeight, pDepth);
             const parcelMat = new THREE.MeshStandardMaterial({
                 color: colorThree,
-                roughness: 0.35,
-                metalness: 0.15,
+                roughness: 0.55,
+                metalness: 0.05,
                 emissive: colorThree,
-                emissiveIntensity: 0.06,
+                emissiveIntensity: 0.14,
                 transparent: true,
-                opacity: 0.95
+                opacity: 0.96,
+                depthWrite: true
             });
 
             const parcelMesh = new THREE.Mesh(parcelGeo, parcelMat);
@@ -594,9 +603,9 @@
 
             const edgesGeo = new THREE.EdgesGeometry(parcelGeo);
             const edgesMat = new THREE.LineBasicMaterial({
-                color: 0xffffff,
+                color: 0x064e3b, // Dark rich outline for contrast instead of washed-out white
                 transparent: true,
-                opacity: 0.65
+                opacity: 0.55
             });
             const wireframe = new THREE.LineSegments(edgesGeo, edgesMat);
             parcelMesh.add(wireframe);
@@ -748,7 +757,7 @@
         if (!mesh) return;
         mesh.position.y = mesh.userData.defaultY;
         if (mesh.material) {
-            mesh.material.emissiveIntensity = (currentLightingMode === 'night') ? 0.55 : 0.06;
+            mesh.material.emissiveIntensity = (currentLightingMode === 'night') ? 0.55 : 0.14;
         }
     }
 
