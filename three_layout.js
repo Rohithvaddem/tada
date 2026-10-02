@@ -35,15 +35,14 @@
     let vehicleTaillightMaterial = null;
     let lastFrameTime = performance.now();
 
-    // First-Person Walk Mode State (Optimized fluid motion, inertia damping, wide FOV)
+    // First-Person Walk Mode State (Free open walking simulator, FPS Pointer Lock & continuous free drag)
     let isWalkModeActive = false;
+    let isPointerLocked = false;
     let walkYaw = -Math.PI / 2; // Facing East down the Central Boulevard
     let walkPitch = -0.02;
-    let targetYaw = -Math.PI / 2;
-    let targetPitch = -0.02;
     const walkKeys = {};
     let walkBobTimer = 0;
-    const walkVelocity = { x: 0, z: 0 };
+    let walkCurrentSpeed = 0;
     const walkTouchDir = { x: 0, z: 0 };
     let preWalkCamPos = null;
     let preWalkTarget = null;
@@ -1062,8 +1061,7 @@
 
 
     /**
-     * Optimized First-Person Walk Mode Controls & Simulation
-     * Natural 72 deg FOV, smooth velocity damping with inertia, dual WASD + Q/E / Drag controls.
+     * Free Open First-Person Walk Simulator (FPS Pointer Lock, 360-deg drag look, direction-aligned WASD)
      */
     function enterWalkMode() {
         if (isWalkModeActive || !camera || !controls) return;
@@ -1076,19 +1074,15 @@
 
         controls.enabled = false;
 
-        // Natural human wide-angle FOV (72 deg eliminates tunnel vision / claustrophobia)
+        // Natural human wide-angle FOV (72 deg gives full immersive peripheral vision)
         camera.fov = 72;
         camera.updateProjectionMatrix();
 
-        // Spawn player at the Central 40' Boulevard facing East down the scenic avenue
-        // Central boulevard road coords: X: -45.0, Y: 1.85 (human eye height ~6ft), Z: -10.70
+        // Spawn player on Central 40' Boulevard facing East down the scenic avenue
         camera.position.set(-45.0, 1.85, -10.70);
         walkYaw = -Math.PI / 2;
         walkPitch = -0.02;
-        targetYaw = -Math.PI / 2;
-        targetPitch = -0.02;
-        walkVelocity.x = 0;
-        walkVelocity.z = 0;
+        walkCurrentSpeed = 0;
         camera.rotation.set(walkPitch, walkYaw, 0, 'YXZ');
 
         // Update UI
@@ -1116,12 +1110,21 @@
             if (lbl) lbl.visible = false;
         });
 
-        console.log('🚶 Walk Mode: Activated on Central Boulevard. WASD = Move, Q / E or Drag = Turn, Shift = Sprint.');
+        // Set cursor to crosshair for FPS exploration
+        const container = document.getElementById('threeCanvasContainer');
+        if (container) container.style.cursor = 'crosshair';
+
+        console.log('🚶 Free Walk Simulator: Activated. Drag mouse to look freely in 360 deg, or click to lock mouse. WASD = Move where you look.');
     }
 
     function exitWalkMode() {
         if (!isWalkModeActive) return;
         isWalkModeActive = false;
+
+        // Release pointer lock if active
+        if (document.pointerLockElement) {
+            try { document.exitPointerLock(); } catch(e) {}
+        }
 
         // Restore orbit camera FOV
         if (camera) {
@@ -1165,27 +1168,31 @@
         const overBtn = document.querySelector('.btn-cam-preset[data-preset="overview"]');
         if (overBtn) overBtn.classList.add('active');
 
+        const container = document.getElementById('threeCanvasContainer');
+        if (container) container.style.cursor = 'grab';
+
         console.log('🚶 Walk Mode: Exited to Orbit Controls.');
     }
 
     function updateWalkMode(delta) {
         if (!isWalkModeActive || !camera) return;
 
-        // Clamp delta to prevent physics jumps on lag spikes
         const dt = Math.min(0.08, Math.max(0.001, delta));
 
         // Smooth keyboard turning (Q / E or ArrowLeft / ArrowRight)
-        const turnSpeed = 1.6;
-        if (walkKeys['KeyQ']) targetYaw += turnSpeed * dt;
-        if (walkKeys['KeyE']) targetYaw -= turnSpeed * dt;
-        if (walkKeys['ArrowLeft'] && !walkKeys['KeyA']) targetYaw += turnSpeed * dt;
-        if (walkKeys['ArrowRight'] && !walkKeys['KeyD']) targetYaw -= turnSpeed * dt;
-
-        // Smooth rotation damping (eliminates mouse/key jitter)
-        const rotLerp = Math.min(1.0, 22.0 * dt);
-        walkYaw += (targetYaw - walkYaw) * rotLerp;
-        walkPitch += (targetPitch - walkPitch) * rotLerp;
-        camera.rotation.set(walkPitch, walkYaw, 0, 'YXZ');
+        const turnSpeed = 2.4;
+        let didTurn = false;
+        if (walkKeys['KeyQ'] || walkKeys['ArrowLeft']) {
+            walkYaw += turnSpeed * dt;
+            didTurn = true;
+        }
+        if (walkKeys['KeyE'] || walkKeys['ArrowRight']) {
+            walkYaw -= turnSpeed * dt;
+            didTurn = true;
+        }
+        if (didTurn) {
+            camera.rotation.set(walkPitch, walkYaw, 0, 'YXZ');
+        }
 
         // Determine input direction
         let moveForward = 0;
@@ -1202,57 +1209,50 @@
 
         const isMoving = (moveForward !== 0 || moveSide !== 0);
         const isSprinting = (walkKeys['ShiftLeft'] || walkKeys['ShiftRight']);
-        const maxSpeed = isSprinting ? 16.0 : 8.5;
+        const targetSpeed = isMoving ? (isSprinting ? 18.0 : 10.0) : 0.0;
 
-        // Calculate target directional velocities in world space
-        let targetVx = 0;
-        let targetVz = 0;
+        // Fluid acceleration / deceleration ramp
+        const accelRate = isMoving ? 16.0 : 20.0;
+        walkCurrentSpeed += (targetSpeed - walkCurrentSpeed) * Math.min(1.0, accelRate * dt);
 
-        if (isMoving) {
-            // Forward and Right vectors from yaw
+        if (walkCurrentSpeed > 0.05 && isMoving) {
+            const len = Math.sqrt(moveForward * moveForward + moveSide * moveSide) || 1;
+            const normF = moveForward / len;
+            const normS = moveSide / len;
+
+            // Free walking aligned 100% to current camera facing horizontal direction
             const fX = -Math.sin(walkYaw);
             const fZ = -Math.cos(walkYaw);
             const rX = Math.cos(walkYaw);
             const rZ = -Math.sin(walkYaw);
 
-            let dx = (fX * moveForward + rX * moveSide);
-            let dz = (fZ * moveForward + rZ * moveSide);
-            const len = Math.sqrt(dx * dx + dz * dz) || 1;
-            dx = (dx / len) * maxSpeed;
-            dz = (dz / len) * maxSpeed;
+            const moveX = (fX * normF + rX * normS) * walkCurrentSpeed;
+            const moveZ = (fZ * normF + rZ * normS) * walkCurrentSpeed;
 
-            targetVx = dx;
-            targetVz = dz;
-        }
+            camera.position.x += moveX * dt;
+            camera.position.z += moveZ * dt;
 
-        // Fluid acceleration & deceleration damping (game-engine inertia)
-        const accelRate = isMoving ? 14.0 : 18.0;
-        const accelFactor = Math.min(1.0, accelRate * dt);
-        walkVelocity.x += (targetVx - walkVelocity.x) * accelFactor;
-        walkVelocity.z += (targetVz - walkVelocity.z) * accelFactor;
-
-        camera.position.x += walkVelocity.x * dt;
-        camera.position.z += walkVelocity.z * dt;
-
-        // Human walking bobbing effect proportional to actual speed
-        const currentSpeedSq = walkVelocity.x * walkVelocity.x + walkVelocity.z * walkVelocity.z;
-        if (currentSpeedSq > 0.3) {
-            walkBobTimer += dt * (isSprinting ? 13.0 : 9.5);
+            // Natural human walking bobbing
+            walkBobTimer += dt * (isSprinting ? 13.0 : 10.0);
             const bobOffset = Math.sin(walkBobTimer) * (isSprinting ? 0.05 : 0.035);
             camera.position.y = 1.85 + bobOffset;
         } else {
-            camera.position.y += (1.85 - camera.position.y) * Math.min(1.0, 10.0 * dt);
+            camera.position.y += (1.85 - camera.position.y) * Math.min(1.0, 12.0 * dt);
         }
 
-        // Keep inside layout bounds
-        camera.position.x = Math.max(-115, Math.min(115, camera.position.x));
-        camera.position.z = Math.max(-85, Math.min(85, camera.position.z));
+        // Open layout boundaries: Explore freely everywhere across the venture
+        camera.position.x = Math.max(-500, Math.min(500, camera.position.x));
+        camera.position.z = Math.max(-500, Math.min(500, camera.position.z));
     }
 
     function setupWalkInputListeners(container) {
         window.addEventListener('keydown', (e) => {
             if (e.target && ['INPUT', 'TEXTAREA'].includes(e.target.tagName)) return;
             if (e.code === 'Escape' && isWalkModeActive) {
+                if (document.pointerLockElement) {
+                    try { document.exitPointerLock(); } catch(err) {}
+                    return; // First escape unlocks pointer, second exits walk
+                }
                 exitWalkMode();
                 return;
             }
@@ -1267,8 +1267,29 @@
             }
         });
 
-        // Mouse drag look when walk mode is active
+        // Pointer Lock State Changes
+        document.addEventListener('pointerlockchange', () => {
+            isPointerLocked = (document.pointerLockElement === container || (renderer && document.pointerLockElement === renderer.domElement));
+            const hint = document.getElementById('threeWalkLockHint');
+            if (hint) {
+                hint.textContent = isPointerLocked ? 'Free Look Active (Esc to unlock)' : 'Click / Drag';
+            }
+            if (container) {
+                container.style.cursor = isPointerLocked ? 'none' : 'crosshair';
+            }
+        });
+
         if (container) {
+            // Click to activate FPS Pointer Lock if not locked
+            container.addEventListener('click', (e) => {
+                if (isWalkModeActive) {
+                    if (!document.pointerLockElement && container.requestPointerLock) {
+                        try { container.requestPointerLock(); } catch(err) {}
+                    }
+                }
+            });
+
+            // Mouse Drag Look (works freely across window without needing pointer lock)
             container.addEventListener('mousedown', (e) => {
                 if (isWalkModeActive && e.button === 0) {
                     isWalkDragging = true;
@@ -1278,15 +1299,33 @@
             });
 
             window.addEventListener('mousemove', (e) => {
-                if (isWalkModeActive && isWalkDragging) {
+                if (!isWalkModeActive) return;
+
+                // Mode A: FPS Pointer Lock Active (Real-time 1:1 camera look)
+                if (isPointerLocked || document.pointerLockElement === container || (renderer && document.pointerLockElement === renderer.domElement)) {
+                    const movementX = e.movementX || e.mozMovementX || 0;
+                    const movementY = e.movementY || e.mozMovementY || 0;
+                    const sens = 0.0022;
+
+                    walkYaw -= movementX * sens;
+                    walkPitch -= movementY * sens;
+                    walkPitch = Math.max(-Math.PI * 0.47, Math.min(Math.PI * 0.47, walkPitch));
+                    camera.rotation.set(walkPitch, walkYaw, 0, 'YXZ');
+                    return;
+                }
+
+                // Mode B: Free Continuous Drag Look
+                if (isWalkDragging) {
                     const dx = e.clientX - walkDragPrev.x;
                     const dy = e.clientY - walkDragPrev.y;
                     walkDragPrev.x = e.clientX;
                     walkDragPrev.y = e.clientY;
 
-                    // Smooth target pitch/yaw adjustment
-                    targetYaw -= dx * 0.0032;
-                    targetPitch = Math.max(-Math.PI * 0.35, Math.min(Math.PI * 0.35, targetPitch - dy * 0.0032));
+                    const sens = 0.0036;
+                    walkYaw -= dx * sens;
+                    walkPitch -= dy * sens;
+                    walkPitch = Math.max(-Math.PI * 0.47, Math.min(Math.PI * 0.47, walkPitch));
+                    camera.rotation.set(walkPitch, walkYaw, 0, 'YXZ');
                 }
             });
 
@@ -1294,7 +1333,7 @@
                 isWalkDragging = false;
             });
 
-            // Touch drag look on mobile
+            // Touch drag look on mobile / tablet
             container.addEventListener('touchstart', (e) => {
                 if (isWalkModeActive && e.touches.length === 1) {
                     isWalkDragging = true;
@@ -1310,8 +1349,11 @@
                     walkDragPrev.x = e.touches[0].clientX;
                     walkDragPrev.y = e.touches[0].clientY;
 
-                    targetYaw -= dx * 0.0040;
-                    targetPitch = Math.max(-Math.PI * 0.35, Math.min(Math.PI * 0.35, targetPitch - dy * 0.0040));
+                    const sens = 0.0048;
+                    walkYaw -= dx * sens;
+                    walkPitch -= dy * sens;
+                    walkPitch = Math.max(-Math.PI * 0.47, Math.min(Math.PI * 0.47, walkPitch));
+                    camera.rotation.set(walkPitch, walkYaw, 0, 'YXZ');
                 }
             }, { passive: true });
 
@@ -1804,6 +1846,14 @@
         }
 
         container.addEventListener('mousemove', (e) => {
+            if (isWalkModeActive) {
+                if (hoveredPlotMesh) {
+                    unhoverPlot(hoveredPlotMesh);
+                    hoveredPlotMesh = null;
+                }
+                hide3DTooltip();
+                return;
+            }
             const coords = getCanvasRelativeCoords(e);
             mouse.x = coords.x;
             mouse.y = coords.y;
@@ -1850,6 +1900,7 @@
         });
 
         container.addEventListener('click', (e) => {
+            if (isWalkModeActive) return; // Prevent clicking plots / snapping camera while walking
             const coords = getCanvasRelativeCoords(e);
             mouse.x = coords.x;
             mouse.y = coords.y;
