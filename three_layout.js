@@ -249,7 +249,7 @@
 
         // 2. Camera
         const overviewPreset = getCameraPreset('overview');
-        camera = new THREE.PerspectiveCamera(45, aspect, 0.5, 3500);
+        camera = new THREE.PerspectiveCamera(45, aspect, 0.1, 4000);
         camera.position.copy(overviewPreset.pos);
 
         // 3. Renderer
@@ -269,7 +269,7 @@
             controls.enableDamping = true;
             controls.dampingFactor = 0.06;
             controls.maxPolarAngle = Math.PI / 2 - 0.02;
-            controls.minDistance = 15;
+            controls.minDistance = 1.0;
             controls.maxDistance = 600;
             controls.target.copy(overviewPreset.target);
         }
@@ -410,6 +410,7 @@
         const outerMesh = new THREE.Mesh(outerGeo, outerMat);
         outerMesh.rotation.x = -Math.PI / 2;
         outerMesh.position.set(159.02, -0.26, 215.86);
+        outerMesh.renderOrder = 0;
         scene.add(outerMesh);
 
         // 2. Wide Regional Esri Satellite Terrain Plane (Covers entire 4.7 km landscape)
@@ -421,6 +422,7 @@
         wideSatelliteMesh = new THREE.Mesh(wideSatGeo, wideSatMat);
         wideSatelliteMesh.rotation.x = -Math.PI / 2;
         wideSatelliteMesh.position.set(159.02, -0.20, 215.86);
+        wideSatelliteMesh.renderOrder = 1;
         scene.add(wideSatelliteMesh);
 
         function applyWideSatTexture(tex) {
@@ -436,6 +438,7 @@
             }
             tex.needsUpdate = true;
             wideSatelliteMesh.material.map = tex;
+            wideSatelliteMesh.renderOrder = 1;
             wideSatelliteMesh.material.needsUpdate = true;
         }
 
@@ -456,11 +459,13 @@
             side: THREE.DoubleSide,
             transparent: true,
             opacity: 1.0,
-            depthWrite: false
+            depthWrite: false,
+            depthTest: true
         });
         satelliteMesh = new THREE.Mesh(satGeo, satMat);
         satelliteMesh.rotation.x = -Math.PI / 2;
-        satelliteMesh.position.set(10.03, -0.15, 2.68);
+        satelliteMesh.position.set(10.03, -0.12, 2.68);
+        satelliteMesh.renderOrder = 2;
         scene.add(satelliteMesh);
 
         function applySatTexture(tex) {
@@ -479,6 +484,8 @@
             satelliteMesh.material.transparent = true;
             satelliteMesh.material.opacity = 1.0;
             satelliteMesh.material.depthWrite = false;
+            satelliteMesh.material.depthTest = true;
+            satelliteMesh.renderOrder = 2;
             satelliteMesh.material.needsUpdate = true;
         }
 
@@ -503,7 +510,7 @@
             }
         );
 
-        // 3. Blueprint Layout Ground Plane (Inside rotated layoutWorldGroup)
+        // 4. Blueprint Layout Ground Plane (Inside rotated layoutWorldGroup)
         const layoutGeo = new THREE.PlaneGeometry(LAYOUT_WIDTH, LAYOUT_HEIGHT, 16, 16);
         const fallbackTex = createProceduralGroundTexture();
         const layoutMat = new THREE.MeshBasicMaterial({
@@ -512,12 +519,17 @@
             side: THREE.DoubleSide,
             transparent: true,
             opacity: 1.0,
-            depthWrite: false
+            depthWrite: false,
+            depthTest: true,
+            polygonOffset: true,
+            polygonOffsetFactor: -2,
+            polygonOffsetUnits: -4
         });
 
         groundMesh = new THREE.Mesh(layoutGeo, layoutMat);
         groundMesh.rotation.x = -Math.PI / 2;
-        groundMesh.position.y = 0;
+        groundMesh.position.y = 0.08;
+        groundMesh.renderOrder = 10;
         groundMesh.receiveShadow = false;
         layoutWorldGroup.add(groundMesh);
 
@@ -537,6 +549,11 @@
             groundMesh.material.transparent = true;
             groundMesh.material.opacity = 1.0;
             groundMesh.material.depthWrite = false;
+            groundMesh.material.depthTest = true;
+            groundMesh.material.polygonOffset = true;
+            groundMesh.material.polygonOffsetFactor = -2;
+            groundMesh.material.polygonOffsetUnits = -4;
+            groundMesh.renderOrder = 10;
             groundMesh.material.map = tex;
             groundMesh.material.needsUpdate = true;
         }
@@ -627,6 +644,7 @@
             parcelMesh.position.y = pHeight / 2 + 0.08;
             parcelMesh.castShadow = true;
             parcelMesh.receiveShadow = true;
+            parcelMesh.renderOrder = 20;
 
             parcelMesh.userData = {
                 plotNo,
@@ -651,6 +669,7 @@
                 opacity: 0.55
             });
             const wireframe = new THREE.LineSegments(edgesGeo, edgesMat);
+            wireframe.renderOrder = 21;
             parcelMesh.add(wireframe);
 
             const hw = pWidth / 2;
