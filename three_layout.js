@@ -35,23 +35,21 @@
     let vehicleTaillightMaterial = null;
     let lastFrameTime = performance.now();
 
-    // First-Person Walk Mode State
+    // First-Person Walk Mode State (Optimized fluid motion, inertia damping, wide FOV)
     let isWalkModeActive = false;
-    let walkYaw = Math.PI * 0.88;
-    let walkPitch = -0.05;
+    let walkYaw = -Math.PI / 2; // Facing East down the Central Boulevard
+    let walkPitch = -0.02;
+    let targetYaw = -Math.PI / 2;
+    let targetPitch = -0.02;
     const walkKeys = {};
     let walkBobTimer = 0;
+    const walkVelocity = { x: 0, z: 0 };
     const walkTouchDir = { x: 0, z: 0 };
     let preWalkCamPos = null;
     let preWalkTarget = null;
+    let preWalkFov = 45;
     let isWalkDragging = false;
     let walkDragPrev = { x: 0, y: 0 };
-
-    // Grand Entrance Arch & Landscaping Groups
-    let entranceArchGroup = null;
-    let landscapingGroup = null;
-    const archSpotlights = [];
-    const treeUplights = [];
 
     // 3D House Customization State (plotNo -> 'villa' | 'duplex' | 'bungalow' | 'open')
     const customPlotStyles = {};
@@ -335,13 +333,7 @@
         // 10. Moving Vehicles on layout roads
         setupVehicles();
 
-        // 11. Grand Entrance Arch near Plot No 9
-        setupEntranceArch();
-
-        // 12. Avenue Landscaping (Royal Palms & Flowering Trees)
-        setupAvenueLandscaping();
-
-        // 13. Highlight Beacon (Spotlight & Ring)
+        // 11. Highlight Beacon (Spotlight & Ring)
         setupBeacon();
 
         // 12. Event Listeners for Raycasting & Resize
@@ -461,17 +453,7 @@
             vehicleTaillightMaterial.emissiveIntensity = (mode === 'night') ? 3.0 : (mode === 'sunset' ? 2.2 : 1.2);
         }
 
-        // Update entrance arch spotlights
-        if (archSpotlights && archSpotlights.length > 0) {
-            const archInt = (mode === 'night') ? 2.5 : (mode === 'sunset' ? 1.4 : 0.0);
-            archSpotlights.forEach(sl => sl.intensity = archInt);
-        }
 
-        // Update tree uplights
-        if (treeUplights && treeUplights.length > 0) {
-            const treeInt = (mode === 'night') ? 1.2 : (mode === 'sunset' ? 0.6 : 0.0);
-            treeUplights.forEach(ul => ul.intensity = treeInt);
-        }
     }
 
     function updatePlotEmissives(intensity) {
@@ -1080,334 +1062,8 @@
 
 
     /**
-     * Setup Grand Entrance Arch near Plot No 9 across Eastern 60' Road
-     */
-    function setupEntranceArch() {
-        if (entranceArchGroup) {
-            layoutWorldGroup.remove(entranceArchGroup);
-            entranceArchGroup = null;
-        }
-
-        entranceArchGroup = new THREE.Group();
-        archSpotlights.length = 0;
-
-        // Plot 9 is at (X: 93.60, Z: -33.66).
-        // The Eastern 60' Road is centered at X = 98.0, Z = -33.66.
-        const archX = 98.0;
-        const archZ = -33.66;
-        const spanW = 6.6; // Spans across the road
-        const pillarH = 7.6;
-        const pillarW = 1.4;
-
-        // Pillar Materials: Rich architectural stone & gold accents
-        const stoneMat = new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.55, metalness: 0.1 });
-        const plinthMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.8 });
-        const goldMat = new THREE.MeshStandardMaterial({ color: 0xf59e0b, roughness: 0.25, metalness: 0.85 });
-
-        // 1. Left Pillar (West curb, near Plot 9)
-        const leftX = archX - spanW / 2;
-        const leftPillar = new THREE.Group();
-        leftPillar.position.set(leftX, 0, archZ);
-
-        const basePlinth = new THREE.Mesh(new THREE.BoxGeometry(pillarW * 1.25, 0.6, pillarW * 1.25), plinthMat);
-        basePlinth.position.y = 0.3;
-        leftPillar.add(basePlinth);
-
-        const shaft = new THREE.Mesh(new THREE.BoxGeometry(pillarW, pillarH, pillarW), stoneMat);
-        shaft.position.y = pillarH / 2 + 0.3;
-        shaft.castShadow = true;
-        leftPillar.add(shaft);
-
-        const cap = new THREE.Mesh(new THREE.BoxGeometry(pillarW * 1.2, 0.45, pillarW * 1.2), goldMat);
-        cap.position.y = pillarH + 0.3 + 0.22;
-        leftPillar.add(cap);
-
-        entranceArchGroup.add(leftPillar);
-
-        // 2. Right Pillar (East curb)
-        const rightX = archX + spanW / 2;
-        const rightPillar = leftPillar.clone();
-        rightPillar.position.set(rightX, 0, archZ);
-        entranceArchGroup.add(rightPillar);
-
-        // 3. Overhead Grand Arch Crossbeam
-        const beamW = spanW + pillarW * 1.2;
-        const beamH = 1.35;
-        const beamD = 1.1;
-        const beamMesh = new THREE.Mesh(new THREE.BoxGeometry(beamW, beamH, beamD), stoneMat);
-        beamMesh.position.set(archX, pillarH + 0.3 + 0.45 + beamH / 2, archZ);
-        beamMesh.castShadow = true;
-        entranceArchGroup.add(beamMesh);
-
-        // Curved arch soffit underneath
-        const archCurve = new THREE.CatmullRomCurve3([
-            new THREE.Vector3(leftX + pillarW * 0.4, pillarH * 0.68, archZ),
-            new THREE.Vector3(archX, pillarH + 0.25, archZ),
-            new THREE.Vector3(rightX - pillarW * 0.4, pillarH * 0.68, archZ)
-        ]);
-        const archTube = new THREE.Mesh(new THREE.TubeGeometry(archCurve, 24, 0.22, 8, false), goldMat);
-        entranceArchGroup.add(archTube);
-
-        // Classical Triangular Pediment Crown on Top
-        const pedGeo = new THREE.ConeGeometry(beamW * 0.52, 1.2, 4);
-        pedGeo.rotateY(Math.PI / 4);
-        const pedMesh = new THREE.Mesh(pedGeo, goldMat);
-        pedMesh.position.set(archX, pillarH + 0.3 + 0.45 + beamH + 0.6, archZ);
-        entranceArchGroup.add(pedMesh);
-
-        // 4. Double-Sided Grand Venture Signboard Canvas Texture
-        const signCanvas = document.createElement('canvas');
-        signCanvas.width = 512;
-        signCanvas.height = 128;
-        const ctx = signCanvas.getContext('2d');
-        if (ctx) {
-            ctx.fillStyle = '#0f172a';
-            ctx.fillRect(0, 0, 512, 128);
-            ctx.strokeStyle = '#f59e0b';
-            ctx.lineWidth = 6;
-            ctx.strokeRect(6, 6, 500, 116);
-            ctx.strokeStyle = '#38bdf8';
-            ctx.lineWidth = 2;
-            ctx.strokeRect(12, 12, 488, 104);
-
-            ctx.textAlign = 'center';
-            ctx.fillStyle = '#f59e0b';
-            ctx.font = 'bold 18px sans-serif';
-            ctx.fillText('★ ASPIREALTY INFRA DEVELOPERS ★', 256, 36);
-
-            ctx.fillStyle = '#ffffff';
-            ctx.font = '900 32px sans-serif';
-            ctx.fillText('TADA MEGA VENTURE', 256, 75);
-
-            ctx.fillStyle = '#38bdf8';
-            ctx.font = 'bold 16px sans-serif';
-            ctx.fillText('PREMIUM GATED COMMUNITY • DTCP APPROVED', 256, 105);
-        }
-        const signTex = new THREE.CanvasTexture(signCanvas);
-        const signMat = new THREE.MeshStandardMaterial({
-            map: signTex,
-            roughness: 0.3,
-            metalness: 0.1,
-            emissive: 0xffffff,
-            emissiveMap: signTex,
-            emissiveIntensity: 0.25
-        });
-
-        // Front Face (+Z)
-        const signFront = new THREE.Mesh(new THREE.PlaneGeometry(beamW * 0.88, beamH * 0.72), signMat);
-        signFront.position.set(archX, pillarH + 0.3 + 0.45 + beamH / 2, archZ + beamD / 2 + 0.02);
-        entranceArchGroup.add(signFront);
-
-        // Back Face (-Z)
-        const signBack = signFront.clone();
-        signBack.rotation.y = Math.PI;
-        signBack.position.set(archX, pillarH + 0.3 + 0.45 + beamH / 2, archZ - beamD / 2 - 0.02);
-        entranceArchGroup.add(signBack);
-
-        // 5. Downward Spotlights illuminating the road entrance underneath
-        const initialSpotInt = (currentLightingMode === 'night') ? 2.5 : (currentLightingMode === 'sunset' ? 1.4 : 0.0);
-        [-1.8, 1.8].forEach(dx => {
-            const spot = new THREE.PointLight(0xfef08a, initialSpotInt, 18, 1.8);
-            spot.position.set(archX + dx, pillarH + 0.2, archZ);
-            entranceArchGroup.add(spot);
-            archSpotlights.push(spot);
-        });
-
-        // 6. Modern Security Cabin (Gatehouse) placed on shoulder beside Plot 9
-        const cabinGroup = new THREE.Group();
-        cabinGroup.position.set(archX - spanW / 2 - 3.2, 0, archZ);
-
-        const cabPlinth = new THREE.Mesh(new THREE.BoxGeometry(2.8, 0.2, 2.6), plinthMat);
-        cabPlinth.position.y = 0.1;
-        cabinGroup.add(cabPlinth);
-
-        const cabBody = new THREE.Mesh(new THREE.BoxGeometry(2.5, 2.3, 2.3), new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.4 }));
-        cabBody.position.y = 1.25;
-        cabBody.castShadow = true;
-        cabinGroup.add(cabBody);
-
-        // Glass observation windows
-        const cabGlass = new THREE.Mesh(new THREE.BoxGeometry(2.54, 0.9, 1.6), new THREE.MeshStandardMaterial({
-            color: 0x38bdf8,
-            transparent: true,
-            opacity: 0.75,
-            roughness: 0.1,
-            metalness: 0.9
-        }));
-        cabGlass.position.y = 1.45;
-        cabinGroup.add(cabGlass);
-
-        // Cabin Overhang Roof with Security Beacon
-        const cabRoof = new THREE.Mesh(new THREE.BoxGeometry(3.0, 0.15, 2.8), stoneMat);
-        cabRoof.position.y = 2.45;
-        cabinGroup.add(cabRoof);
-
-        const beaconSphere = new THREE.Mesh(new THREE.SphereGeometry(0.12, 8, 8), new THREE.MeshStandardMaterial({
-            color: 0xef4444,
-            emissive: 0xef4444,
-            emissiveIntensity: 2.0
-        }));
-        beaconSphere.position.set(0, 2.60, 0);
-        cabinGroup.add(beaconSphere);
-
-        entranceArchGroup.add(cabinGroup);
-
-        // 7. Automated Boom Barrier Gates across entry/exit lanes
-        const barrierMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.3 });
-        const postMat2 = new THREE.MeshStandardMaterial({ color: 0xf59e0b, roughness: 0.4 });
-        
-        // Left barrier motor
-        const bMotL = new THREE.Mesh(new THREE.BoxGeometry(0.35, 1.0, 0.35), postMat2);
-        bMotL.position.set(archX - 0.4, 0.5, archZ + 1.2);
-        entranceArchGroup.add(bMotL);
-
-        // Barrier Arm
-        const armL = new THREE.Mesh(new THREE.BoxGeometry(2.6, 0.08, 0.08), barrierMat);
-        armL.position.set(archX - 1.7, 0.95, archZ + 1.2);
-        entranceArchGroup.add(armL);
-
-        // Right barrier motor
-        const bMotR = new THREE.Mesh(new THREE.BoxGeometry(0.35, 1.0, 0.35), postMat2);
-        bMotR.position.set(archX + 0.4, 0.5, archZ - 1.2);
-        entranceArchGroup.add(bMotR);
-
-        const armR = new THREE.Mesh(new THREE.BoxGeometry(2.6, 0.08, 0.08), barrierMat);
-        armR.position.set(archX + 1.7, 0.95, archZ - 1.2);
-        entranceArchGroup.add(armR);
-
-        // 8. Flanking Stainless Steel Flagpoles & Flower Planters
-        [-spanW / 2 - 1.5, spanW / 2 + 1.5].forEach((dx, idx) => {
-            const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.06, 7.5, 8), new THREE.MeshStandardMaterial({ color: 0xffffff, metalness: 0.9, roughness: 0.2 }));
-            pole.position.set(archX + dx, 3.75, archZ + (idx === 0 ? 1.5 : -1.5));
-            entranceArchGroup.add(pole);
-
-            // Planter box
-            const planter = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.45, 1.4), new THREE.MeshStandardMaterial({ color: 0x475569, roughness: 0.8 }));
-            planter.position.set(archX + dx, 0.22, archZ);
-            entranceArchGroup.add(planter);
-
-            // Shrub in planter
-            const shrub = new THREE.Mesh(new THREE.DodecahedronGeometry(0.55), new THREE.MeshStandardMaterial({ color: 0x15803d, roughness: 0.8 }));
-            shrub.position.set(archX + dx, 0.65, archZ);
-            entranceArchGroup.add(shrub);
-        });
-
-        layoutWorldGroup.add(entranceArchGroup);
-        console.log('✅ Grand Entrance Arch installed near Plot No 9 across Eastern 60 Road.');
-    }
-
-    /**
-     * Setup Avenue Landscaping (Royal Palms & Flowering Trees) along road curbs
-     */
-    function setupAvenueLandscaping() {
-        if (landscapingGroup) {
-            layoutWorldGroup.remove(landscapingGroup);
-            landscapingGroup = null;
-        }
-
-        landscapingGroup = new THREE.Group();
-        treeUplights.length = 0;
-
-        // Shared geometries & materials for performance
-        const palmTrunkGeo = new THREE.CylinderGeometry(0.18, 0.32, 5.2, 7);
-        const palmTrunkMat = new THREE.MeshStandardMaterial({ color: 0x78350f, roughness: 0.9 });
-        const frondMat = new THREE.MeshStandardMaterial({ color: 0x15803d, roughness: 0.6, side: THREE.DoubleSide });
-        const curbPlanterGeo = new THREE.CylinderGeometry(0.75, 0.85, 0.25, 12);
-        const curbPlanterMat = new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.8 });
-
-        function createRoyalPalm() {
-            const palm = new THREE.Group();
-            // Stone curb planter
-            const planter = new THREE.Mesh(curbPlanterGeo, curbPlanterMat);
-            planter.position.y = 0.12;
-            palm.add(planter);
-
-            // Trunk with slight organic lean
-            const trunk = new THREE.Mesh(palmTrunkGeo, palmTrunkMat);
-            trunk.position.y = 2.6;
-            trunk.rotation.z = (Math.random() - 0.5) * 0.06;
-            trunk.castShadow = true;
-            palm.add(trunk);
-
-            // Crown of 12 cascading tropical fronds
-            const crown = new THREE.Group();
-            crown.position.y = 5.1;
-            for (let i = 0; i < 12; i++) {
-                const angle = (i / 12) * Math.PI * 2;
-                const frond = new THREE.Mesh(new THREE.ConeGeometry(0.55, 2.2, 4), frondMat);
-                frond.position.set(Math.cos(angle) * 0.85, -0.3, Math.sin(angle) * 0.85);
-                frond.rotation.y = angle;
-                frond.rotation.x = Math.PI / 2.8;
-                frond.castShadow = true;
-                crown.add(frond);
-            }
-            palm.add(crown);
-
-            return palm;
-        }
-
-        function createFloweringTree() {
-            const tree = new THREE.Group();
-            const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.32, 3.8, 6), palmTrunkMat);
-            trunk.position.y = 1.9;
-            trunk.castShadow = true;
-            tree.add(trunk);
-
-            const canopy = new THREE.Mesh(new THREE.DodecahedronGeometry(1.6), new THREE.MeshStandardMaterial({
-                color: (Math.random() > 0.4) ? 0x10b981 : 0xfbbf24,
-                roughness: 0.75
-            }));
-            canopy.position.y = 4.2;
-            canopy.castShadow = true;
-            tree.add(canopy);
-            return tree;
-        }
-
-        // Surveyed safe curb coordinates along avenues (leaving driving tarmac clear)
-        const landscapePositions = [
-            // Avenue 1
-            { x: -68.8, z: -38.0, type: 'palm' }, { x: -65.2, z: -20.0, type: 'tree' }, { x: -68.8, z: -4.0, type: 'palm' }, { x: -65.2, z: 10.0, type: 'palm' },
-            // Avenue 2
-            { x: -46.8, z: -38.0, type: 'tree' }, { x: -43.2, z: -20.0, type: 'palm' }, { x: -46.8, z: -4.0, type: 'palm' }, { x: -43.2, z: 10.0, type: 'tree' },
-            // Avenue 3
-            { x: -23.6, z: -38.0, type: 'palm' }, { x: -20.0, z: -20.0, type: 'tree' }, { x: -23.6, z: 2.0, type: 'palm' }, { x: -20.0, z: 24.0, type: 'tree' }, { x: -23.6, z: 46.0, type: 'palm' },
-            // Avenue 4 (Central Avenue)
-            { x: -0.5, z: -38.0, type: 'palm' }, { x: 1.8, z: -20.0, type: 'tree' }, { x: -0.5, z: 2.0, type: 'palm' }, { x: 1.8, z: 24.0, type: 'palm' }, { x: -0.5, z: 46.0, type: 'tree' },
-            // Avenue 5
-            { x: 21.8, z: -38.0, type: 'tree' }, { x: 24.2, z: -20.0, type: 'palm' }, { x: 21.8, z: 2.0, type: 'tree' }, { x: 24.2, z: 24.0, type: 'palm' }, { x: 21.8, z: 46.0, type: 'palm' },
-            // Avenue 6
-            { x: 45.2, z: -38.0, type: 'palm' }, { x: 48.8, z: -20.0, type: 'tree' }, { x: 45.2, z: 2.0, type: 'palm' }, { x: 48.8, z: 24.0, type: 'tree' }, { x: 45.2, z: 46.0, type: 'palm' },
-            // Avenue 7
-            { x: 68.2, z: -38.0, type: 'palm' }, { x: 71.8, z: -28.0, type: 'tree' }, { x: 68.2, z: -18.0, type: 'palm' },
-            // Central 40' Boulevard
-            { x: -55.0, z: -13.2, type: 'palm' }, { x: -35.0, z: -8.2, type: 'palm' }, { x: -10.0, z: -13.2, type: 'tree' },
-            { x: 15.0, z: -8.2, type: 'palm' }, { x: 40.0, z: -13.2, type: 'palm' }, { x: 65.0, z: -8.2, type: 'tree' }, { x: 85.0, z: -13.2, type: 'palm' },
-            // Entrance Parkway near Arch & Plot 9
-            { x: 95.8, z: -42.0, type: 'palm' }, { x: 100.4, z: -42.0, type: 'palm' },
-            { x: 95.8, z: -24.0, type: 'palm' }, { x: 100.4, z: -24.0, type: 'palm' }
-        ];
-
-        landscapePositions.forEach((pos, idx) => {
-            const item = (pos.type === 'palm') ? createRoyalPalm() : createFloweringTree();
-            item.position.set(pos.x, 0.08, pos.z);
-            landscapingGroup.add(item);
-
-            // Select palm uplights for sunset/night ambiance
-            if (idx % 4 === 0) {
-                const initialTreeInt = (currentLightingMode === 'night') ? 1.2 : (currentLightingMode === 'sunset' ? 0.6 : 0.0);
-                const uplight = new THREE.PointLight(0x86efac, initialTreeInt, 12, 2.0);
-                uplight.position.set(pos.x, 0.4, pos.z);
-                landscapingGroup.add(uplight);
-                treeUplights.push(uplight);
-            }
-        });
-
-        layoutWorldGroup.add(landscapingGroup);
-        console.log(`✅ Landscaped ${landscapePositions.length} royal palms and flowering trees along venture avenues.`);
-    }
-
-    /**
-     * First-Person Walk Mode Controls & Simulation
+     * Optimized First-Person Walk Mode Controls & Simulation
+     * Natural 72 deg FOV, smooth velocity damping with inertia, dual WASD + Q/E / Drag controls.
      */
     function enterWalkMode() {
         if (isWalkModeActive || !camera || !controls) return;
@@ -1416,13 +1072,23 @@
         // Remember orbit state to restore upon exit
         preWalkCamPos = camera.position.clone();
         preWalkTarget = controls.target.clone();
+        preWalkFov = camera.fov;
 
         controls.enabled = false;
 
-        // Spawn player right at the Grand Entrance Arch near Plot No 9
-        camera.position.set(98.0, 1.75, -24.0);
-        walkYaw = Math.PI * 0.90; // Face looking into the layout towards South-West
-        walkPitch = -0.04;
+        // Natural human wide-angle FOV (72 deg eliminates tunnel vision / claustrophobia)
+        camera.fov = 72;
+        camera.updateProjectionMatrix();
+
+        // Spawn player at the Central 40' Boulevard facing East down the scenic avenue
+        // Central boulevard road coords: X: -45.0, Y: 1.85 (human eye height ~6ft), Z: -10.70
+        camera.position.set(-45.0, 1.85, -10.70);
+        walkYaw = -Math.PI / 2;
+        walkPitch = -0.02;
+        targetYaw = -Math.PI / 2;
+        targetPitch = -0.02;
+        walkVelocity.x = 0;
+        walkVelocity.z = 0;
         camera.rotation.set(walkPitch, walkYaw, 0, 'YXZ');
 
         // Update UI
@@ -1433,6 +1099,9 @@
 
         const hud = document.getElementById('threeWalkHud');
         if (hud) hud.classList.add('active');
+
+        const reticle = document.getElementById('threeWalkReticle');
+        if (reticle) reticle.classList.add('show');
 
         const guide = document.getElementById('threeControlsGuide');
         if (guide) guide.style.display = 'none';
@@ -1447,12 +1116,18 @@
             if (lbl) lbl.visible = false;
         });
 
-        console.log('🚶 Walk Mode: Activated. Use WASD / Arrow keys or Touch D-Pad to walk. Drag mouse to look.');
+        console.log('🚶 Walk Mode: Activated on Central Boulevard. WASD = Move, Q / E or Drag = Turn, Shift = Sprint.');
     }
 
     function exitWalkMode() {
         if (!isWalkModeActive) return;
         isWalkModeActive = false;
+
+        // Restore orbit camera FOV
+        if (camera) {
+            camera.fov = preWalkFov || 45;
+            camera.updateProjectionMatrix();
+        }
 
         // Restore floating plot numbers
         Object.values(plotLabels).forEach(lbl => {
@@ -1478,6 +1153,9 @@
         const hud = document.getElementById('threeWalkHud');
         if (hud) hud.classList.remove('active');
 
+        const reticle = document.getElementById('threeWalkReticle');
+        if (reticle) reticle.classList.remove('show');
+
         const guide = document.getElementById('threeControlsGuide');
         if (guide) guide.style.display = 'flex';
 
@@ -1493,21 +1171,42 @@
     function updateWalkMode(delta) {
         if (!isWalkModeActive || !camera) return;
 
-        // Determine input velocity
+        // Clamp delta to prevent physics jumps on lag spikes
+        const dt = Math.min(0.08, Math.max(0.001, delta));
+
+        // Smooth keyboard turning (Q / E or ArrowLeft / ArrowRight)
+        const turnSpeed = 1.6;
+        if (walkKeys['KeyQ']) targetYaw += turnSpeed * dt;
+        if (walkKeys['KeyE']) targetYaw -= turnSpeed * dt;
+        if (walkKeys['ArrowLeft'] && !walkKeys['KeyA']) targetYaw += turnSpeed * dt;
+        if (walkKeys['ArrowRight'] && !walkKeys['KeyD']) targetYaw -= turnSpeed * dt;
+
+        // Smooth rotation damping (eliminates mouse/key jitter)
+        const rotLerp = Math.min(1.0, 22.0 * dt);
+        walkYaw += (targetYaw - walkYaw) * rotLerp;
+        walkPitch += (targetPitch - walkPitch) * rotLerp;
+        camera.rotation.set(walkPitch, walkYaw, 0, 'YXZ');
+
+        // Determine input direction
         let moveForward = 0;
         let moveSide = 0;
 
-        if (walkKeys['KeyW'] || walkKeys['ArrowUp']) moveForward += 1;
-        if (walkKeys['KeyS'] || walkKeys['ArrowDown']) moveForward -= 1;
-        if (walkKeys['KeyA'] || walkKeys['ArrowLeft']) moveSide -= 1;
-        if (walkKeys['KeyD'] || walkKeys['ArrowRight']) moveSide += 1;
+        if (walkKeys['KeyW'] || (walkKeys['ArrowUp'] && !walkKeys['KeyW'])) moveForward += 1;
+        if (walkKeys['KeyS'] || (walkKeys['ArrowDown'] && !walkKeys['KeyS'])) moveForward -= 1;
+        if (walkKeys['KeyA']) moveSide -= 1;
+        if (walkKeys['KeyD']) moveSide += 1;
 
         // Add virtual touch D-pad
         moveForward += walkTouchDir.z;
         moveSide += walkTouchDir.x;
 
         const isMoving = (moveForward !== 0 || moveSide !== 0);
-        const speed = (walkKeys['ShiftLeft'] || walkKeys['ShiftRight']) ? 20.0 : 10.5;
+        const isSprinting = (walkKeys['ShiftLeft'] || walkKeys['ShiftRight']);
+        const maxSpeed = isSprinting ? 16.0 : 8.5;
+
+        // Calculate target directional velocities in world space
+        let targetVx = 0;
+        let targetVz = 0;
 
         if (isMoving) {
             // Forward and Right vectors from yaw
@@ -1519,25 +1218,35 @@
             let dx = (fX * moveForward + rX * moveSide);
             let dz = (fZ * moveForward + rZ * moveSide);
             const len = Math.sqrt(dx * dx + dz * dz) || 1;
-            dx = (dx / len) * speed * delta;
-            dz = (dz / len) * speed * delta;
+            dx = (dx / len) * maxSpeed;
+            dz = (dz / len) * maxSpeed;
 
-            camera.position.x += dx;
-            camera.position.z += dz;
-
-            // Subtle human head-bob
-            walkBobTimer += delta * 11;
-            camera.position.y = 1.75 + Math.sin(walkBobTimer) * 0.05;
-        } else {
-            camera.position.y = 1.75;
+            targetVx = dx;
+            targetVz = dz;
         }
 
-        // Clamp inside layout bounds
+        // Fluid acceleration & deceleration damping (game-engine inertia)
+        const accelRate = isMoving ? 14.0 : 18.0;
+        const accelFactor = Math.min(1.0, accelRate * dt);
+        walkVelocity.x += (targetVx - walkVelocity.x) * accelFactor;
+        walkVelocity.z += (targetVz - walkVelocity.z) * accelFactor;
+
+        camera.position.x += walkVelocity.x * dt;
+        camera.position.z += walkVelocity.z * dt;
+
+        // Human walking bobbing effect proportional to actual speed
+        const currentSpeedSq = walkVelocity.x * walkVelocity.x + walkVelocity.z * walkVelocity.z;
+        if (currentSpeedSq > 0.3) {
+            walkBobTimer += dt * (isSprinting ? 13.0 : 9.5);
+            const bobOffset = Math.sin(walkBobTimer) * (isSprinting ? 0.05 : 0.035);
+            camera.position.y = 1.85 + bobOffset;
+        } else {
+            camera.position.y += (1.85 - camera.position.y) * Math.min(1.0, 10.0 * dt);
+        }
+
+        // Keep inside layout bounds
         camera.position.x = Math.max(-115, Math.min(115, camera.position.x));
         camera.position.z = Math.max(-85, Math.min(85, camera.position.z));
-
-        // Apply first-person camera rotation
-        camera.rotation.set(walkPitch, walkYaw, 0, 'YXZ');
     }
 
     function setupWalkInputListeners(container) {
@@ -1575,8 +1284,9 @@
                     walkDragPrev.x = e.clientX;
                     walkDragPrev.y = e.clientY;
 
-                    walkYaw -= dx * 0.0035;
-                    walkPitch = Math.max(-Math.PI / 3, Math.min(Math.PI / 3, walkPitch - dy * 0.0035));
+                    // Smooth target pitch/yaw adjustment
+                    targetYaw -= dx * 0.0032;
+                    targetPitch = Math.max(-Math.PI * 0.35, Math.min(Math.PI * 0.35, targetPitch - dy * 0.0032));
                 }
             });
 
@@ -1600,8 +1310,8 @@
                     walkDragPrev.x = e.touches[0].clientX;
                     walkDragPrev.y = e.touches[0].clientY;
 
-                    walkYaw -= dx * 0.0045;
-                    walkPitch = Math.max(-Math.PI / 3, Math.min(Math.PI / 3, walkPitch - dy * 0.0045));
+                    targetYaw -= dx * 0.0040;
+                    targetPitch = Math.max(-Math.PI * 0.35, Math.min(Math.PI * 0.35, targetPitch - dy * 0.0040));
                 }
             }, { passive: true });
 
@@ -2837,5 +2547,15 @@
     window.exit3DWalkMode = exitWalkMode;
     window.customizePlotHouseStyle = rebuildPlotModel;
     window.applyHouseStyleToAllPlots = applyHouseStyleToAll;
+    window.get3DCameraState = function() {
+        if (!camera) return null;
+        return {
+            x: camera.position.x,
+            y: camera.position.y,
+            z: camera.position.z,
+            fov: camera.fov,
+            controlsEnabled: controls ? controls.enabled : false
+        };
+    };
 
 })();
