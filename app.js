@@ -199,7 +199,7 @@ function getPlotEffectiveStatus(item) {
 }
 
 const DB_VERSION_KEY = 'tada_db_version';
-const CURRENT_DB_VERSION = '1.8.0';
+const CURRENT_DB_VERSION = '1.9.0';
 
 // Invalidate stale localStorage cache whenever the bundled database version increments
 try {
@@ -277,19 +277,8 @@ function initApp() {
 
 function getStatusColor(status, plotNo, detail) {
     const s = String(status || '').toUpperCase().trim();
-    const pNum = parseInt(plotNo, 10);
-
-    // Rule: Plot numbers 80 to 131 and plot 18 have brown colour while keeping status AVAILABLE
-    const brownExceptions = [18];
-    if ((pNum >= 80 && pNum <= 131) || brownExceptions.includes(pNum)) {
-        if (s === 'SOLD' || s === 'BOOKED') return '#1d4ed8'; // Dark Blue
-        if (s === 'HOLD') return '#8b5cf6'; // Violet
-        if (s === 'MORTGAGE') return '#f97316'; // Orange
-        if (s === 'REGISTERED') return '#ff0000'; // Pure Vivid Red
-        return '#8b4513'; // Brown for plots 80-131 and 18
-    }
     
-    // Explicit statuses take priority - Available is Darker Green
+    // Explicit statuses take priority - Available is Darker Green (#059669) for all available plots
     if (s === 'AVAILABLE' || s === 'ASPIREALTY') {
         return '#059669'; // Darker Green
     }
@@ -819,11 +808,24 @@ function openPlotModal(plotNo) {
                 <span class="detail-val">${item.reference_name || 'N/A'}</span>
             </div>
         </div>
+        <button class="btn-jump-3d" id="viewPlotIn3dBtn">
+            <i class="fa-solid fa-cube"></i> View This Plot in 3D
+        </button>
         <button class="btn-director-action" id="openDealSimulatorBtn" style="display: ${isDealSimulatorAllowed ? 'flex' : 'none'}; margin-top: 8px;">
             <i class="fa-solid fa-calculator" style="color: #facc15;"></i> Live Deal Closer &amp; Margin Simulator
         </button>
         ${editButtonHtml}
     `;
+    const view3dBtn = document.getElementById('viewPlotIn3dBtn');
+    if (view3dBtn) {
+        view3dBtn.addEventListener('click', () => {
+            modalBackdrop.classList.remove('show');
+            if (typeof window.open3DLayoutModal === 'function') {
+                window.open3DLayoutModal(plotNo);
+            }
+        });
+    }
+
     const openSimBtn = document.getElementById('openDealSimulatorBtn');
     if (openSimBtn) {
         openSimBtn.addEventListener('click', () => {

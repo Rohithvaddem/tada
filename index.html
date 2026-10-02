@@ -5,7 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Tada Layout Digital View | Aspirealty</title>
-    <link rel="stylesheet" href="style.css?v=1.8.0">
+    <link rel="stylesheet" href="style.css?v=1.9.0">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 </head>
@@ -47,7 +47,24 @@
                     </div>
                 </div>
 
-
+                <!-- 3D Interactive Model Quick Launch -->
+                <div class="sidebar-section" style="border-top: 1px solid var(--border-color); padding-top: 14px;">
+                    <div style="background: linear-gradient(135deg, rgba(168, 85, 247, 0.15), rgba(59, 130, 246, 0.15)); border: 1px solid rgba(168, 85, 247, 0.35); border-radius: 10px; padding: 12px; text-align: left;">
+                        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;">
+                            <div style="display: flex; align-items: center; gap: 8px;">
+                                <i class="fa-solid fa-cube" style="color: #c084fc; font-size: 15px;"></i>
+                                <span style="font-size: 13px; font-weight: 800; color: #f8fafc;">3D Layout Model</span>
+                            </div>
+                            <span style="font-size: 9.5px; font-weight: 700; background: #a855f7; color: #fff; padding: 2px 6px; border-radius: 10px;">LIVE</span>
+                        </div>
+                        <p style="font-size: 11px; color: var(--text-secondary); margin-bottom: 10px; line-height: 1.4;">
+                            Explore real-time 3D terrain, fly through open plots, sunlight simulator &amp; status elevation.
+                        </p>
+                        <button id="sidebarLaunch3DBtn" onclick="if(window.open3DLayoutModal)window.open3DLayoutModal();" class="admin-login-btn" style="background: linear-gradient(135deg, #a855f7, #3b82f6); color: #fff; border: none; font-weight: 700; width: 100%; border-radius: 8px; cursor: pointer; padding: 10px; display: flex; align-items: center; justify-content: center; gap: 8px;">
+                            <i class="fa-solid fa-vr-cardboard"></i> Launch 3D Tour
+                        </button>
+                    </div>
+                </div>
 
                 <!-- Mapper Mode Section (Plot Button Aligner) -->
                 <div class="sidebar-section" id="mapperSection"
@@ -103,6 +120,9 @@
                     <button class="filter-reset-btn" id="mapViewToggleBtn"
                         style="display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; margin-left: 10px; font-weight: 600; cursor: pointer; border-radius: 6px; background: rgba(59, 130, 246, 0.15); border: 1px solid #3b82f6; color: #60a5fa;">
                         <i class="fa-solid fa-map"></i> <span>2D Plan View</span>
+                    </button>
+                    <button class="btn-3d-header" id="open3DModalBtn" onclick="if(window.open3DLayoutModal)window.open3DLayoutModal();" title="Launch Interactive 3D Digital Layout Model">
+                        <i class="fa-solid fa-cube"></i> <span>3D Interactive View</span>
                     </button>
                 </div>
                 <div class="header-stats">
@@ -448,11 +468,149 @@
         </div>
     </div>
 
+    <!-- 3D Layout Interactive View Modal -->
+    <div class="modal-3d-backdrop" id="modal3DLayoutBackdrop">
+        <div class="modal-3d-container" id="modal3DLayout">
+            <!-- 3D Modal Header -->
+            <header class="modal-3d-header">
+                <div class="modal-3d-title-group">
+                    <div class="modal-3d-icon-badge">
+                        <i class="fa-solid fa-cube"></i>
+                    </div>
+                    <div>
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <h3 class="modal-3d-title">Tada Layout 3D Interactive Model</h3>
+                            <span class="modal-3d-tag"><i class="fa-solid fa-vr-cardboard"></i> Real-time 3D</span>
+                        </div>
+                        <div style="font-size: 11px; color: #94a3b8; margin-top: 2px;">
+                            Interactive 3D plots, real-time status elevation, camera flight, and sunlight simulation
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Toolbar / Presets -->
+                <div class="modal-3d-toolbar">
+                    <!-- Camera Presets -->
+                    <div class="toolbar-group">
+                        <button class="toolbar-btn btn-cam-preset active" data-preset="overview" title="Bird's Eye Perspective">
+                            <i class="fa-solid fa-eye"></i> Overview
+                        </button>
+                        <button class="toolbar-btn btn-cam-preset" data-preset="isometric" title="Isometric 45° Angle">
+                            <i class="fa-solid fa-cubes"></i> Isometric
+                        </button>
+                        <button class="toolbar-btn btn-cam-preset" data-preset="lowAngle" title="Ground Eye-level Walkthrough">
+                            <i class="fa-solid fa-person-walking"></i> Ground
+                        </button>
+                        <button class="toolbar-btn btn-cam-preset" data-preset="topDown" title="Top-Down Plan View">
+                            <i class="fa-solid fa-compass"></i> Top-Down
+                        </button>
+                    </div>
+
+                    <!-- Lighting Modes -->
+                    <div class="toolbar-group">
+                        <button class="toolbar-btn btn-light-mode active" data-mode="day" title="Bright Daylight">
+                            <i class="fa-solid fa-sun" style="color: #fbbf24;"></i> Day
+                        </button>
+                        <button class="toolbar-btn btn-light-mode" data-mode="sunset" title="Golden Hour Sunset">
+                            <i class="fa-solid fa-cloud-sun" style="color: #f97316;"></i> Sunset
+                        </button>
+                        <button class="toolbar-btn btn-light-mode" data-mode="night" title="Cyber Night Glow">
+                            <i class="fa-solid fa-moon" style="color: #38bdf8;"></i> Night
+                        </button>
+                    </div>
+
+                    <!-- Utilities -->
+                    <button class="toolbar-btn" id="threeAutoRotateBtn" title="Toggle Auto-Orbit Turntable">
+                        <i class="fa-solid fa-arrows-spin"></i> Auto-Orbit
+                    </button>
+                    <button class="toolbar-btn" id="threeResetViewBtn" title="Reset Camera View">
+                        <i class="fa-solid fa-rotate-left"></i> Reset
+                    </button>
+                    <button class="toolbar-btn" id="threeFullscreenBtn" title="Toggle Fullscreen">
+                        <i class="fa-solid fa-expand"></i>
+                    </button>
+
+                    <!-- Close Modal -->
+                    <button class="modal-3d-close-btn" id="modal3DCloseBtn" title="Close 3D View (Esc)">
+                        <i class="fa-solid fa-xmark"></i>
+                    </button>
+                </div>
+            </header>
+
+            <!-- 3D Canvas Viewport -->
+            <div class="modal-3d-viewport" id="modal3DViewport">
+                <div id="threeCanvasContainer"></div>
+
+                <!-- HUD Overlay: Top-Left Filter Pills -->
+                <div class="three-hud-filters">
+                    <span style="font-size: 11px; font-weight: 700; color: #94a3b8; margin-right: 4px;">Status:</span>
+                    <button class="three-filter-pill active" data-status="ALL">All Plots</button>
+                    <button class="three-filter-pill" data-status="AVAILABLE" style="border-left: 3px solid #059669;">Available</button>
+                    <button class="three-filter-pill" data-status="SOLD" style="border-left: 3px solid #1d4ed8;">Sold</button>
+                    <button class="three-filter-pill" data-status="HOLD" style="border-left: 3px solid #8b5cf6;">Hold</button>
+                    <button class="three-filter-pill" data-status="MORTGAGE" style="border-left: 3px solid #f97316;">Mortgage</button>
+                    <button class="three-filter-pill" data-status="REGISTERED" style="border-left: 3px solid #ff0000;">Registered</button>
+                </div>
+
+                <!-- HUD Overlay: Top-Right Plot Jump / Search -->
+                <div class="three-hud-search">
+                    <i class="fa-solid fa-magnifying-glass" style="color: #94a3b8; font-size: 11px;"></i>
+                    <input type="number" id="threePlotSearchInput" class="three-search-input" placeholder="Fly to Plot # (1-131)" min="1" max="131">
+                </div>
+
+                <!-- Bottom Controls Guide -->
+                <div class="three-controls-guide">
+                    <i class="fa-solid fa-computer-mouse" style="color: #38bdf8;"></i>
+                    <span><strong>Left-Click + Drag:</strong> Orbit &bull; <strong>Right-Click:</strong> Pan &bull; <strong>Scroll:</strong> Zoom &bull; <strong>Click Plot:</strong> Inspect</span>
+                </div>
+
+                <!-- Hover Tooltip -->
+                <div class="three-plot-tooltip" id="threePlotTooltip"></div>
+
+                <!-- Right-side Quick Inspect Drawer -->
+                <div class="three-inspect-drawer" id="threeInspectDrawer">
+                    <div class="three-inspect-header">
+                        <div class="three-inspect-title" id="threeInspectPlotTitle">
+                            <span>Plot Details</span>
+                        </div>
+                        <button class="three-drawer-close" id="threeInspectCloseBtn" title="Close Drawer">
+                            <i class="fa-solid fa-xmark"></i>
+                        </button>
+                    </div>
+                    <div id="threeInspectDetailsBody">
+                        <!-- Dynamic details injected by three_layout.js -->
+                    </div>
+                    <div class="three-drawer-actions">
+                        <button class="three-drawer-btn three-btn-primary" id="threeOpenFullPlotModalBtn">
+                            <i class="fa-solid fa-up-right-from-square"></i> Open Full Details Modal
+                        </button>
+                        <button class="three-drawer-btn three-btn-secondary" id="threeViewIn2DBtn">
+                            <i class="fa-solid fa-map-location-dot"></i> View on 2D / Satellite Map
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Scripts -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script src="plot_coords.js?v=1.8.0"></script>
-    <script src="data.js?v=1.8.0"></script>
-    <script src="app.js?v=1.8.0"></script>
+    <script src="three.min.js"></script>
+    <script>
+        if (typeof THREE === 'undefined') {
+            document.write('<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"><\/script>');
+        }
+    </script>
+    <script src="OrbitControls.js"></script>
+    <script>
+        if (typeof THREE !== 'undefined' && !THREE.OrbitControls) {
+            document.write('<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"><\/script>');
+        }
+    </script>
+    <script src="plot_coords.js?v=1.9.0"></script>
+    <script src="data.js?v=1.9.0"></script>
+    <script src="three_layout.js?v=1.0.1"></script>
+    <script src="app.js?v=1.9.0"></script>
 </body>
 
 </html>
